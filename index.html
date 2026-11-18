@@ -1061,6 +1061,9 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   }
   const nextPrize = () => { const i = nextIdx(); return i >= 0 ? prizes[i] : null; };
   const busy = () => drawnCount() > 0 || absent.length > 0;
+  // 保存データにあった「回し始めた時点の当選」が今の状態で使えるか：抽選順で次の景品で、番号が抽選の対象に入っていて、まだ出ていないこと
+  const validSpin = sp => !!sp && prizes[sp.i] != null && wins[sp.i] == null && nextIdx() === sp.i &&
+    inPool(sp.n) && !Object.values(wins).includes(sp.n) && !absent.includes(sp.n);
   let spinIdx = -1, revealIdx = -1;
 
   let wheelNums = [];
@@ -2479,7 +2482,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   function applySync() {
     syncWaiting = false;
     loadMembers(); deriveRoster(); loadSettings(); loadState();
-    otherSpin = storedSpin; storedSpin = null;   // ほかのタブで回している途中の当選は、そのタブが決める
+    otherSpin = validSpin(storedSpin) ? storedSpin : null; storedSpin = null;   // ほかのタブで回している途中の当選は、そのタブが決める
     if (hasRoster()) N = rosterPeople();   // 名簿の人数に合わせる（読み直しただけなので保存はしない）
     try { soundOn = localStorage.getItem(STORE + "-sound") !== "off"; } catch (e) {}
     if (pending !== null || !reveal.hidden) wheelDirty = true; else rebuildWheel();
@@ -2504,6 +2507,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   // 受付モードのまま再読み込みされたとき：受付モードに戻す（全画面はブラウザの制約で自動では戻せない）
   try { if (sessionStorage.getItem(KIOSK_KEY)) setKiosk(true, false); } catch (e) {}
   // 回っている途中で再読み込みされたとき：回し始めた時点で決まっていた当選番号で当選画面を出す
+  if (storedSpin && !validSpin(storedSpin)) storedSpin = null;   // 名簿や景品が変わって使えなくなったものは捨てる
   if (storedSpin) {
     const { i, n } = storedSpin; storedSpin = null;
     wins[i] = n; drawOrder.push(i);
