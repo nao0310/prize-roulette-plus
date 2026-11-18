@@ -80,16 +80,33 @@ test("リセット：当選番号と外した番号が消え、景品は残る",
   await t.close();
 });
 
-test("回転中に再読み込み：途中の結果は残らず、もう一度回せる", async () => {
+test("回転中に再読み込み：回し始めたときに決まっていた番号で当選画面が出て、引き直しにならない", async () => {
   const t = await h.open({ clock: true, storage: { [S]: { prizes: h.makePrizes(3), people: 10 } } });
   await t.page.click("#spinBtn");
   await t.page.clock.runFor(2000);
+  const decided = (await h.stored(t.page)).pendingSpin;
+  assert.ok(decided && decided.n >= 1 && decided.n <= 10, "回し始めた時点で当選が保存されていない");
   await t.page.reload();
   await t.page.waitForFunction(() => document.body.className.includes("view-"));
+  assert.equal(await t.page.locator("#reveal").isVisible(), true);
+  assert.equal(+(await t.page.textContent("#bigNum")), decided.n);
+  assert.match(await t.page.textContent("#revealCount"), /再読み込み/);
   const st = await h.stored(t.page);
-  assert.deepEqual(st.wins || {}, {});
-  assert.equal(await t.page.locator("#spinBtn").isEnabled(), true);
-  assert.equal(await t.page.evaluate(() => document.body.classList.contains("is-spinning")), false);
+  assert.deepEqual(st.wins, { 2: decided.n });
+  assert.equal(st.pendingSpin, null);
+  // もう一度読み込んでも当選画面は出ない（記録は残る）
+  await t.page.reload();
+  await t.page.waitForFunction(() => document.body.className.includes("view-"));
+  assert.equal(await t.page.locator("#reveal").isHidden(), true);
+  assert.equal((await h.listState(t.page)).find(r => r.rank === 3).num, decided.n);
+  assert.deepEqual(t.errors, []);
+  await t.close();
+});
+
+test("止まったあと（当選画面）は、回し始めの記録が消えている", async () => {
+  const t = await h.open({ clock: true, reducedMotion: true, storage: { [S]: { prizes: h.makePrizes(2), people: 10 } } });
+  await h.spinOnce(t.page);
+  assert.equal((await h.stored(t.page)).pendingSpin, null);
   await t.close();
 });
 
