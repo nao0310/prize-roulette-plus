@@ -199,3 +199,22 @@ test("日本語の変換を確定する Enter（変換中のキー入力）で�
   assert.equal((await h.stored(t.page)).prizes[0].name, "変更");
   await t.close();
 });
+
+test("同じ名前の確認は、空白の有無・全角半角・大文字小文字の違いも同じとみなす（保存は入力どおり）", async () => {
+  const t = await h.open({ hash: "reception" });
+  await register(t.page, "山田 太郎"); await next(t.page);
+  await register(t.page, "TARO", "nick"); await next(t.page);
+  for (const [name, kind] of [["山田太郎", "name"], ["山田　太郎", "name"], ["ｔａｒｏ", "nick"], ["Taro", "name"]]) {
+    await register(t.page, name, kind);
+    assert.equal(await t.page.locator("#kDup").isVisible(), true, name);
+    await t.page.click("#kDupNo");
+  }
+  await t.page.click("#kForm button[type=submit]");   // 「Taro」を別の人として受付
+  await t.page.click("#kDupYes");
+  const m = (await h.stored(t.page, S + "-members")).members;
+  assert.deepEqual(Object.values(m).map(v => v.name), ["山田 太郎", "TARO", "Taro"]);
+  await next(t.page);
+  await register(t.page, "山田 花子");
+  assert.equal(await t.page.locator("#kTicket").isVisible(), true);
+  await t.close();
+});

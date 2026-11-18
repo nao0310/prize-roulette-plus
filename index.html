@@ -2330,7 +2330,9 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     const kind = kKind(), name = $("kName").value.trim().replace(/\s+/g, " ").slice(0, 20);
     if (kind !== "none" && !name) { kErr(kind === "name" ? "お名前を入力してください（入力したくない場合は「入力しない」を選べます）" : "ニックネームを入力してください"); $("kName").focus(); return; }
     // 同じ名前がすでにいるときは確認する（ほかの人の番号は表示しない）
-    if (!force && kind !== "none" && Object.values(members).some(m => m.kind !== "none" && m.name === name)) {
+    // 比べるときだけ、空白をなくし、全角・半角と大文字・小文字をそろえる（保存する名前は入力どおり）
+    const same = v => String(v).normalize("NFKC").replace(/\s+/g, "").toLowerCase();
+    if (!force && kind !== "none" && Object.values(members).some(m => m.kind !== "none" && same(m.name) === same(name))) {
       kPending = { kind, name };
       $("kDupText").textContent = "同じお名前の方がすでに受付しています。別の方ですか？";
       kShow("kDup"); $("kDupYes").focus(); return;
