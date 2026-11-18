@@ -551,6 +551,30 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
 .staff-btn.holding { background: var(--red); color: #fff; transition: background 2s linear; }
 @media (prefers-reduced-motion: reduce) { .ticket-num { animation: none; } }
 
+/* ロゴ：「PRIZE」の下に「ROULETTE PLUS」を置く（スマホでも同じ並び） */
+/* 横並びのまま折り返すとロゴの幅が広く計算されるため、グリッドで「5文字の行」と「その下の行」に分ける */
+.logo { display: grid; grid-template-columns: repeat(5, auto); justify-content: start; column-gap: 2px; row-gap: 3px; width: max-content; }
+.logo .sub {
+  display: block; grid-column: 1 / -1; margin-left: 2px; align-self: auto;
+  font-size: .37em; letter-spacing: .04em; line-height: 1; white-space: nowrap;
+  width: 0; min-width: calc(100% - 2px);   /* ロゴの幅は「PRIZE」の幅で決め、下の行はその幅に合わせる */
+  text-align-last: justify;
+}
+.logo .sub .plus { margin-left: 2px; }
+@media (max-width: 560px) {
+  /* 縦向きのスマホ：ロゴの横にボタンが収まるよう、少し詰める */
+  .logo { font-size: 22px; }
+  header { gap: 8px; }
+  .tools { gap: 4px; }
+  .tools .chip { padding: 5px 9px; font-size: 11px; }
+}
+@media (max-width: 560px) {
+  /* ロゴの右側でボタンを折り返す（ボタンがロゴの下に落ちないように） */
+  header { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; }
+  header .tools { justify-content: flex-end; flex-wrap: wrap; }
+  header .next-card { grid-column: 1 / -1; }
+}
+
 </style>
 </head>
 <body>
