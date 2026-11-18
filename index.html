@@ -1707,19 +1707,8 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   async function loadFile(file) {
     if (typeof XLSX === "undefined") { setMsg("Excelを読む部品を読み込めませんでした。ページを再読み込みしてから、もう一度試してください。", true); return; }
     try {
-      const buf = await file.arrayBuffer();
-      let wb;
-      if (/\.csv$/i.test(file.name)) {
-        // CSVは文字コードを判定してから読む（UTF-8 → だめならExcelで保存したShift_JIS）
-        let text;
-        try { text = new TextDecoder("utf-8", { fatal: true }).decode(buf); }
-        catch (e) { text = new TextDecoder("shift_jis").decode(buf); }
-        wb = XLSX.read(text.replace(/^\uFEFF/, ""), { type: "string" });
-      } else {
-        wb = XLSX.read(buf, { type: "array" });
-      }
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, blankrows: false });
-      const list = parseRows(rows);
+      // 名簿と同じく、セルを文字のまま読む（「3/4」が日付の数値に、「0012」が 12 に変わらないように）
+      const list = parseRows(await readRows(file));
       if (!list.length) { setMsg("景品が見つかりませんでした。A列に順位、B列に景品名を入れたファイルを選んでください。", true); return; }
       prizes = list.map((p, i) => ({ rank: i + 1, name: p.name })); isDummy = false; wins = {}; drawOrder = []; absent = [];
       save(); rebuildWheel(); renderSide(); renderPlus();
