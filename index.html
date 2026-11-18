@@ -949,32 +949,42 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   // members：番号 → { name: 名前またはニックネーム, kind: "name" | "nick" | "none", at: 受付時刻 }
   // roster ：番号 → 表示名（抽選の対象になる番号の一覧として使う。名前なしの人は ""）
   let members = {}, roster = {}, rosterFile = "";
-  let settings = { eventName: "", numbering: "seq", start: 1, capacity: 100, open: true, showNames: true, resetSec: 10 };
+  let settings = {};
   // 保存データ（バックアップから戻したもの・別のバージョンのものを含む）は、型と範囲を確かめてから使う
-  try {
-    const m = JSON.parse(localStorage.getItem(STORE + "-members") || "null");
-    if (m && m.members && typeof m.members === "object") {
-      for (const [k, v] of Object.entries(m.members)) {
-        const n = +k;
-        if (Number.isInteger(n) && n >= 1 && n <= MAX_PEOPLE && v && typeof v === "object")
-          members[n] = { name: typeof v.name === "string" || typeof v.name === "number" ? String(v.name).slice(0, 40) : "", kind: ["name", "nick", "none"].includes(v.kind) ? v.kind : "name", at: Number(v.at) || 0 };
+  // （ほかのタブで保存されたときにも読み直すので、関数にしておく）
+  function loadMembers() {
+    members = {}; rosterFile = "";
+    try {
+      const m = JSON.parse(localStorage.getItem(STORE + "-members") || "null");
+      if (m && m.members && typeof m.members === "object") {
+        for (const [k, v] of Object.entries(m.members)) {
+          const n = +k;
+          if (Number.isInteger(n) && n >= 1 && n <= MAX_PEOPLE && v && typeof v === "object")
+            members[n] = { name: typeof v.name === "string" || typeof v.name === "number" ? String(v.name).slice(0, 40) : "", kind: ["name", "nick", "none"].includes(v.kind) ? v.kind : "name", at: Number(v.at) || 0 };
+        }
+        rosterFile = typeof m.file === "string" ? m.file : "";
       }
-      rosterFile = typeof m.file === "string" ? m.file : "";
-    }
-  } catch (e) {}
-  try {
-    const st = JSON.parse(localStorage.getItem(STORE + "-settings") || "null");
-    if (st && typeof st === "object" && !Array.isArray(st)) {
-      if (typeof st.eventName === "string") settings.eventName = st.eventName.slice(0, 40);
-      if (st.numbering === "seq" || st.numbering === "random") settings.numbering = st.numbering;
-      const a = parseInt(st.start, 10), c = parseInt(st.capacity, 10);
-      if (a >= 1 && a <= MAX_PEOPLE) settings.start = a;
-      if (c >= 1) settings.capacity = Math.min(MAX_PEOPLE - settings.start + 1, c);
-      if (typeof st.open === "boolean") settings.open = st.open;
-      if (typeof st.showNames === "boolean") settings.showNames = st.showNames;
-      if ([5, 10, 15, 30].includes(+st.resetSec)) settings.resetSec = +st.resetSec;
-    }
-  } catch (e) {}
+    } catch (e) {}
+  }
+  loadMembers();
+  const SETTINGS_DEFAULT = { eventName: "", numbering: "seq", start: 1, capacity: 100, open: true, showNames: true, resetSec: 10 };
+  function loadSettings() {
+    settings = { ...SETTINGS_DEFAULT };
+    try {
+      const st = JSON.parse(localStorage.getItem(STORE + "-settings") || "null");
+      if (st && typeof st === "object" && !Array.isArray(st)) {
+        if (typeof st.eventName === "string") settings.eventName = st.eventName.slice(0, 40);
+        if (st.numbering === "seq" || st.numbering === "random") settings.numbering = st.numbering;
+        const a = parseInt(st.start, 10), c = parseInt(st.capacity, 10);
+        if (a >= 1 && a <= MAX_PEOPLE) settings.start = a;
+        if (c >= 1) settings.capacity = Math.min(MAX_PEOPLE - settings.start + 1, c);
+        if (typeof st.open === "boolean") settings.open = st.open;
+        if (typeof st.showNames === "boolean") settings.showNames = st.showNames;
+        if ([5, 10, 15, 30].includes(+st.resetSec)) settings.resetSec = +st.resetSec;
+      }
+    } catch (e) {}
+  }
+  loadSettings();
   function deriveRoster() {
     roster = {};
     for (const [k, v] of Object.entries(members)) roster[k] = v.kind === "none" ? "" : v.name;
@@ -984,39 +994,44 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   const hasRoster = () => Object.keys(roster).length > 0;
   // 名簿の人数（＝名簿にある最大の番号）。番号が1から順に並んでいれば名簿の人数と同じになる
   const rosterPeople = () => Math.min(MAX_PEOPLE, Math.max(MIN_PEOPLE, 0, ...Object.keys(roster).map(Number)));
-  try {
-    const s = JSON.parse(localStorage.getItem(STORE) || "null");
-    if (s && typeof s === "object") {
-      const isNum = n => Number.isInteger(n) && n >= 1 && n <= MAX_PEOPLE;
-      // 景品：景品名が文字（または数字）のものだけ。順位は並び順に振り直す。old→new は当選番号の付け替え用
-      const remap = new Map();
-      if (Array.isArray(s.prizes)) {
-        const list = [];
-        s.prizes.slice(0, MAX_PEOPLE).forEach((p, i) => {
-          const nm = p && typeof p === "object" ? p.name : p;
-          const name = typeof nm === "string" || typeof nm === "number" ? String(nm).trim().replace(/\s+/g, " ").slice(0, 60) : "";
-          if (!name) return;
-          remap.set(i, list.length);
-          list.push({ rank: list.length + 1, name });
-        });
-        // 「すべて消す」で空にした一覧（空の配列）も、そのまま空として戻す
-        if (list.length || (!s.prizes.length && !s.isDummy)) { prizes = list; isDummy = !!s.isDummy; }
-      }
-      if (s.order2 === "top") order = "top";
-      if (Number.isInteger(s.people)) N = Math.min(MAX_PEOPLE, Math.max(MIN_PEOPLE, s.people));
-      if (s.wins && typeof s.wins === "object" && remap.size) {
-        const used = new Set();
-        for (const [k, v] of Object.entries(s.wins)) {
-          const i = remap.get(Number(k)), n = Number(v);
-          if (i == null || !isNum(n) || used.has(n)) continue;
-          wins[i] = n; used.add(n);
+  function loadState() {
+    prizes = DUMMY.map(p => ({ ...p })); isDummy = true; order = "bottom"; N = 100;
+    wins = {}; drawOrder = []; absent = []; legacyDrawn = null;
+    try {
+      const s = JSON.parse(localStorage.getItem(STORE) || "null");
+      if (s && typeof s === "object") {
+        const isNum = n => Number.isInteger(n) && n >= 1 && n <= MAX_PEOPLE;
+        // 景品：景品名が文字（または数字）のものだけ。順位は並び順に振り直す。old→new は当選番号の付け替え用
+        const remap = new Map();
+        if (Array.isArray(s.prizes)) {
+          const list = [];
+          s.prizes.slice(0, MAX_PEOPLE).forEach((p, i) => {
+            const nm = p && typeof p === "object" ? p.name : p;
+            const name = typeof nm === "string" || typeof nm === "number" ? String(nm).trim().replace(/\s+/g, " ").slice(0, 60) : "";
+            if (!name) return;
+            remap.set(i, list.length);
+            list.push({ rank: list.length + 1, name });
+          });
+          // 「すべて消す」で空にした一覧（空の配列）も、そのまま空として戻す
+          if (list.length || (!s.prizes.length && !s.isDummy)) { prizes = list; isDummy = !!s.isDummy; }
         }
-        if (Array.isArray(s.drawOrder)) drawOrder = [...new Set(s.drawOrder.map(i => remap.get(Number(i))))].filter(i => i != null && wins[i] != null);
-        for (const i of Object.keys(wins).map(Number)) if (!drawOrder.includes(i)) drawOrder.push(i);   // 順番が分からない当選も一覧に残す
-        if (Array.isArray(s.absent)) absent = [...new Set(s.absent.map(Number))].filter(n => isNum(n) && !used.has(n));
-      } else if (Array.isArray(s.drawn)) legacyDrawn = [...new Set(s.drawn.map(Number))].filter(n => isNum(n) && n <= N);
-    }
-  } catch (e) {}
+        if (s.order2 === "top") order = "top";
+        if (Number.isInteger(s.people)) N = Math.min(MAX_PEOPLE, Math.max(MIN_PEOPLE, s.people));
+        if (s.wins && typeof s.wins === "object" && remap.size) {
+          const used = new Set();
+          for (const [k, v] of Object.entries(s.wins)) {
+            const i = remap.get(Number(k)), n = Number(v);
+            if (i == null || !isNum(n) || used.has(n)) continue;
+            wins[i] = n; used.add(n);
+          }
+          if (Array.isArray(s.drawOrder)) drawOrder = [...new Set(s.drawOrder.map(i => remap.get(Number(i))))].filter(i => i != null && wins[i] != null);
+          for (const i of Object.keys(wins).map(Number)) if (!drawOrder.includes(i)) drawOrder.push(i);   // 順番が分からない当選も一覧に残す
+          if (Array.isArray(s.absent)) absent = [...new Set(s.absent.map(Number))].filter(n => isNum(n) && !used.has(n));
+        } else if (Array.isArray(s.drawn)) legacyDrawn = [...new Set(s.drawn.map(Number))].filter(n => isNum(n) && n <= N);
+      }
+    } catch (e) {}
+  }
+  loadState();
   // 抽選の対象になる番号：名簿があれば名簿にある番号だけ、なければ 1〜参加人数 すべて
   const inPool = n => hasRoster() ? Object.prototype.hasOwnProperty.call(roster, n) : (n >= 1 && n <= N);
   const poolSize = () => hasRoster() ? Object.keys(roster).length : N;
@@ -1397,7 +1412,9 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
       document.body.classList.remove("is-spinning");
       wins[spinIdx] = num;
       drawOrder.push(spinIdx);
-      save(); renderPlus();
+      save();
+      if (syncWaiting) applySync();   // 回っている間にほかのタブで変わった名簿などを読み直す
+      renderPlus();
       renderSide();
       showReveal(num);
     }, reduced ? 0 : 650);
@@ -2388,6 +2405,27 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
       location.hash = "draw";
       location.reload();
     });
+  });
+
+  // ======================================================================
+  // ほかのタブとの同期：同じ端末で2つのタブ（受付用と抽選用など）を開いているとき、
+  // ほかのタブで保存された内容をすぐ読み直す。古い内容のまま保存して、相手の変更を上書きしないため
+  // （ブラウザの storage イベントを使う。外部との通信はしない）
+  // ======================================================================
+  let syncWaiting = false;
+  function applySync() {
+    syncWaiting = false;
+    loadMembers(); deriveRoster(); loadSettings(); loadState();
+    if (hasRoster()) N = rosterPeople();   // 名簿の人数に合わせる（読み直しただけなので保存はしない）
+    try { soundOn = localStorage.getItem(STORE + "-sound") !== "off"; } catch (e) {}
+    if (pending !== null || !reveal.hidden) wheelDirty = true; else rebuildWheel();
+    renderSound(); renderSide(); renderPlus();
+  }
+  addEventListener("storage", e => {
+    if (e.storageArea && e.storageArea !== localStorage) return;
+    if (e.key !== null && !String(e.key).startsWith(STORE)) return;
+    if (spinning || beatTimer) { syncWaiting = true; return; }   // 回っている間は、止まってから読み直す
+    applySync();
   });
 
   if (!isDummy) setMsg(`景品 ${prizes.length}件を登録しています`);
