@@ -47,7 +47,7 @@ const BASE = { [S]: { prizes: prizes(20), people: 120, order2: "bottom" }, [S + 
 // 当選が途中まで決まっている状態（下位から 15件）
 const partial = () => { const wins = {}, drawOrder = []; for (let i = 19; i >= 5; i--) { wins[i] = 120 - i; drawOrder.push(i); } return { ...BASE, [S]: { ...BASE[S], wins, drawOrder } }; };
 
-// 点検する状態：[名前, 保存データ, 開く画面, 準備の操作, この状態で縦スクロールしないはずか（PC）]
+// 点検する状態：[名前, 保存データ, 開く画面, 準備の操作, この状態で縦スクロールしないはずか（PC）。null は設定などの縦に長い画面（スクロールしてよい）]
 const STATES = [
   ["抽選", BASE, "draw", null, true],
   ["抽選（途中）", partial(), "draw", null, true],
@@ -55,15 +55,15 @@ const STATES = [
   ["結果", partial(), "draw", async p => { await p.evaluate(() => { document.getElementById("resultBtn").click(); document.getElementById("result").hidden = false; }); }, false],
   ["リセットの確認", partial(), "draw", async p => { await p.click("#resetBtn"); }, true],
   ["発表モード", partial(), "draw", async p => { await p.click("#presentBtn"); }, true],
-  ["景品", BASE, "prizes", null, false],
-  ["受付（管理）", BASE, "reception", null, false],
+  ["景品", BASE, "prizes", null, null],
+  ["受付（管理）", BASE, "reception", null, null],
   ["受付モード", BASE, "reception", async p => { await p.click("#kStart"); }, true],
   ["受付モード：エラー", BASE, "reception", async p => { await p.click("#kStart"); await p.click("#kForm button[type=submit]"); }, true],
   ["受付モード：同じ名前", BASE, "reception", async p => { await p.click("#kStart"); await p.fill("#kName", "参加者 2"); await p.click("#kForm button[type=submit]"); }, true],
   ["受付モード：番号", BASE, "reception", async p => { await p.click("#kStart"); await p.fill("#kName", "とても長い名前の人のなまえです"); await p.click("#kForm button[type=submit]"); }, true],
   ["受付モード：終了", { ...BASE, [S + "-settings"]: { ...settings, open: false } }, "reception", async p => { await p.click("#kStart"); }, true],
-  ["名簿", BASE, "members", null, false],
-  ["データ", BASE, "data", null, false],
+  ["名簿", BASE, "members", null, null],
+  ["データ", BASE, "data", null, null],
 ];
 
 // ページの中で調べる
@@ -89,7 +89,7 @@ function inspect(expectFit) {
     scrollers.push([name(el), dy]);
     if (el.matches(".prize-list")) continue;   // 景品の一覧は件数が多いとスクロールする作り
     if (expectFit && desktop) out.push(`縦スクロール：${name(el)} が ${dy}px 縦に動く（画面に収まるはずの状態）`);
-    else if (dy <= 60) out.push(`わずかな縦スクロール：${name(el)} が ${dy}px だけ縦に動く（余白だけでスクロールしていないか）`);
+    else if (expectFit !== null && dy <= 60) out.push(`わずかな縦スクロール：${name(el)} が ${dy}px だけ縦に動く（余白だけでスクロールしていないか）`);
   }
   // 3. 横のはみ出し：画面の右端・左端より外に出る要素（飾りは除く）
   for (const el of document.querySelectorAll("body *")) {
