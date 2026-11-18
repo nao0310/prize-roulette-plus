@@ -100,6 +100,7 @@ sh tests/run.sh
 - 抽選・公平性（当選番号の偏りをカイ二乗検定で確認。回数は `FAIR_ROUNDS=4000 sh tests/run.sh` のように変えられます）・名簿・受付・景品の編集・ファイルの読み書き・セキュリティ・表示（PC／iPad／iPhone）・保存領域を確かめます
 - 1つのファイルだけ実行するとき：`MODE=file node --test tests/reception.test.js`（`MODE=http` でローカルサーバー）
 - `SHOT_DIR=フォルダ` を付けると、表示のテストでスクリーンショットを保存します
+- GitHub に push すると、GitHub Actions で同じテストが自動で動きます（公平性のテストは時間を短くするため300回×3本）
 
 ## 同梱ライブラリ
 

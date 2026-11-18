@@ -25,3 +25,5 @@ jobs:
           npx playwright install --with-deps chromium
       - name: テストを実行（ローカルサーバーと file:// の両方）
         run: sh tests/run.sh
+        env:
+          FAIR_ROUNDS: 300   # 公平性のテストは GitHub では300回×3本に減らす（手元では既定の1000回、または回数を指定して実行）
