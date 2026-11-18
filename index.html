@@ -2187,6 +2187,8 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     used.forEach(n => { if (n >= a && n <= b && n > max) max = n; });
     return free.find(n => n > max) ?? free[0];
   }
+  // 名簿なし（1〜参加人数）で抽選している途中は、名簿に人を足さない（足すと抽選の対象が名簿の人だけに切り替わるため）
+  const numberDrawing = () => !hasRoster() && isLocked();
   function addMember(kind, name, num) {
     members[num] = { name: kind === "none" ? "" : name, kind, at: Date.now() };
     membersChanged();
@@ -2256,6 +2258,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     const kind = $("memAddKind").value, name = $("memAddName").value.trim().replace(/\s+/g, " ").slice(0, 20);
     const msg = (t, err) => { $("memAddMsg").textContent = t; $("memAddMsg").classList.toggle("error", !!err); };
     if (kind !== "none" && !name) { msg("名前（またはニックネーム）を入力してください。入力しない場合は「入力しない」を選んでください", true); return; }
+    if (numberDrawing()) { msg(`参加人数（1〜${N}番）で抽選している途中なので、名簿に追加できません。名簿を使うときは「抽選」画面でリセットしてから追加してください`, true); return; }
     let num;
     if ($("memAddNum").value.trim()) {
       num = parseInt($("memAddNum").value, 10);
@@ -2296,6 +2299,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   document.querySelectorAll('input[name="kKind"]').forEach(r => r.addEventListener("change", () => { kKindChanged(); if (kKind() !== "none") $("kName").focus(); }));
   function kSubmit(force) {
     if (!settings.open) { kShow("kClosed"); return; }
+    if (numberDrawing()) { kErr("抽選中のため、ここでは受付できません。スタッフにお声がけください。"); return; }
     const kind = kKind(), name = $("kName").value.trim().replace(/\s+/g, " ").slice(0, 20);
     if (kind !== "none" && !name) { kErr(kind === "name" ? "お名前を入力してください（入力したくない場合は「入力しない」を選べます）" : "ニックネームを入力してください"); $("kName").focus(); return; }
     // 同じ名前がすでにいるときは確認する（ほかの人の番号は表示しない）
@@ -2332,7 +2336,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     const nx = settings.numbering === "seq" ? nextNumber() : null;
     $("kNextNum").textContent = settings.numbering === "random" ? "ランダム" : nx == null ? "満員" : nx;
     const [a, b] = numRange();
-    $("kMode").textContent = `番号の振り方：${settings.numbering === "random" ? "ランダム" : "来た順"}（${a}〜${b}番）${settings.open ? "" : "・受付終了中"}`;
+    $("kMode").textContent = `番号の振り方：${settings.numbering === "random" ? "ランダム" : "来た順"}（${a}〜${b}番）${settings.open ? "" : "・受付終了中"}${numberDrawing() ? "・参加人数で抽選中のため受付停止中" : ""}`;
     $("kEvent").textContent = settings.eventName;
     $("kEvent").hidden = !settings.eventName;
     if (!settings.open && !$("kForm").hidden) kShow("kClosed");

@@ -131,3 +131,25 @@ test("名簿を全部消す：2回押しで消え、抽選の途中は消せな�
   assert.match(await t.page.textContent("#listSub"), /1〜\d+番で抽選/);
   await t.close();
 });
+
+test("名簿なし（1〜参加人数）で抽選している途中は、受付・手での追加を止め、抽選の対象が変わらない", async () => {
+  const t = await h.open({ clock: true, reducedMotion: true, storage: { [S]: { prizes: h.makePrizes(5), people: 50 } } });
+  await h.spinOnce(t.page); await h.closeReveal(t.page);
+  await t.page.evaluate(() => location.hash = "reception");
+  assert.match(await t.page.textContent("#kMode"), /受付停止中/);
+  await t.page.fill("#kName", "A"); await t.page.click("#kForm button[type=submit]");
+  assert.equal(await t.page.locator("#kTicket").isHidden(), true);
+  assert.match(await t.page.textContent("#kErr"), /抽選中のため/);
+  await t.page.evaluate(() => location.hash = "members");
+  await t.page.fill("#memAddName", "B"); await t.page.click("#memAddForm button[type=submit]");
+  assert.match(await t.page.textContent("#memAddMsg"), /リセットしてから/);
+  assert.equal(await h.stored(t.page, S + "-members"), null);
+  await t.page.evaluate(() => location.hash = "draw");
+  assert.match(await t.page.textContent("#listSub"), /1〜50番で抽選/);
+  // リセットすれば受付できる
+  await t.page.click("#resetBtn"); await t.page.click("#doReset");
+  await t.page.evaluate(() => location.hash = "reception");
+  await t.page.fill("#kName", "A"); await t.page.click("#kForm button[type=submit]");
+  assert.equal(await t.page.locator("#kTicket").isVisible(), true);
+  await t.close();
+});
