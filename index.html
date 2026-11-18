@@ -1017,7 +1017,8 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   // 抽選の対象になる番号：名簿があれば名簿にある番号だけ、なければ 1〜参加人数 すべて
   const inPool = n => hasRoster() ? Object.prototype.hasOwnProperty.call(roster, n) : (n >= 1 && n <= N);
   const poolSize = () => hasRoster() ? Object.keys(roster).length : N;
-  const total = () => Math.min(prizes.length, poolSize());
+  // 抽選する景品の数。途中で名簿の人が減っても、当選が決まった景品は外さない
+  const total = () => { let t = poolSize(); for (const k in wins) t = Math.max(t, +k + 1); return Math.min(prizes.length, t); };
   // 抽選順で j 番目に回す景品の添字
   const seqIndex = j => order === "top" ? j : total() - 1 - j;
   if (legacyDrawn) legacyDrawn.slice(0, total()).forEach((num, k) => { const i = seqIndex(k); wins[i] = num; drawOrder.push(i); });

@@ -60,9 +60,13 @@ test("抽選の途中で名簿の人を消しても、決まった当選者は�
   while (await t.page.locator("#spinBtn").isEnabled()) { won.push(await h.spinOnce(t.page)); await h.closeReveal(t.page); await t.page.locator("#result").evaluate(e => { e.hidden = true; }); }
   assert.equal(new Set(won).size, won.length);
   assert.equal(won.length, 3);
-  await t.page.click("#resultBtn");
-  const res = await t.page.$$eval("#result .rcard .ball-sm", a => a.map(x => +x.textContent));
-  assert.deepEqual(res.sort(), won.slice().sort());
+  const listed = (await h.listState(t.page)).filter(r => r.num).map(r => r.num);
+  assert.deepEqual(listed.sort(), won.slice().sort());
+  // 結果のCSVにも全員が出る
+  await t.page.evaluate(() => location.hash = "data");
+  const [dl] = await Promise.all([t.page.waitForEvent("download"), t.page.click("#expResults")]);
+  const csv = require("fs").readFileSync(await dl.path(), "utf8");
+  for (const n of won) assert.match(csv, new RegExp(`,${n},`));
   await t.close();
 });
 
