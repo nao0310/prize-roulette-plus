@@ -1377,7 +1377,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     const prize = prizes[revealIdx];
     reveal.style.setProperty("--c", colorOf(num));
     const rankEl = document.getElementById("revealRank");
-    rankEl.innerHTML = `${prize.rank}<small>位 当選！</small>`;
+    rankEl.innerHTML = `${esc(prize.rank)}<small>位 当選！</small>`;
     const bigNum = document.getElementById("bigNum");
     bigNum.textContent = num;
     bigNum.classList.toggle("three", num >= 100);
@@ -1532,7 +1532,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   function renderSide() {
     const np = nextPrize();
     document.getElementById("nextTitle").textContent = np ? "次の景品" : "抽選終了";
-    document.getElementById("nextRank").innerHTML = np ? `${np.rank}<small>位</small>` : "END";
+    document.getElementById("nextRank").innerHTML = np ? `${esc(np.rank)}<small>位</small>` : "END";
     document.getElementById("nextName").textContent = np ? np.name : prizes.length ? "すべての景品の当選番号が決まりました" : "「景品」タブで景品を登録してください";
     fitNextName();
     layoutList();
@@ -2163,7 +2163,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
         `<td><input class="text" type="text" maxlength="20" data-n="${n}" value="${esc(memberLabel(m))}" ${m.kind === "none" ? 'disabled placeholder="（名前なし）"' : 'placeholder="名前を入力"'} aria-label="${n}番の名前"></td>` +
         `<td><select class="text" data-n="${n}" aria-label="${n}番の種別">${["name", "nick", "none"].map(k => `<option value="${k}"${m.kind === k ? " selected" : ""}>${KIND_LABEL[k]}</option>`).join("")}</select></td>` +
         `<td class="time">${esc(fmtTime(m.at)) || "—"}</td>` +
-        `<td>${wp ? `<span class="won">${wp.rank}位</span>` : gone.has(n) ? '<span class="gone">外した番号</span>' : ""}</td>` +
+        `<td>${wp ? `<span class="won">${esc(wp.rank)}位</span>` : gone.has(n) ? '<span class="gone">外した番号</span>' : ""}</td>` +
         `<td><button type="button" class="chip mini danger-text" data-del="${n}"${wp ? ' disabled title="当選済みの番号は削除できません。当選者がいない場合は「回し直し」を使ってください"' : ""}>削除</button></td>`;
       body.appendChild(tr);
     }
