@@ -185,3 +185,25 @@ test("受付の管理画面（受付モードの前）：PC の画面（1280×72
     await t.close();
   }
 });
+
+test("抽選画面の一覧：長い景品名・名前でも行からはみ出さず、隣の行の順位や当選番号に重ならない", async () => {
+  const wins = {}, drawOrder = []; for (let i = 19; i >= 5; i--) { wins[i] = 120 - i; drawOrder.push(i); }
+  for (const [name, o] of TARGETS) {
+    const t = await h.open({ ...o, storage: { ...storage, [S]: { ...storage[S], wins, drawOrder } } });
+    await t.page.waitForTimeout(300);
+    const bad = await t.page.evaluate(() => {
+      const out = [];
+      for (const li of document.querySelectorAll("#prizeList .prow")) {
+        if (li.scrollHeight > li.clientHeight + 1) out.push(`${li.querySelector(".rk").textContent} の行から中身が ${li.scrollHeight - li.clientHeight}px はみ出す`);
+        for (const el of li.querySelectorAll(".rk, .ball-sm")) {
+          el.scrollIntoView({ block: "center" });
+          const r = el.getBoundingClientRect(), hit = document.elementFromPoint((r.left + r.right) / 2, (r.top + r.bottom) / 2);
+          if (hit && !el.contains(hit) && !hit.contains(el)) out.push(`${li.querySelector(".rk").textContent} の ${el.className} が隠れている`);
+        }
+      }
+      return out.slice(0, 5);
+    });
+    assert.deepEqual(bad, [], name);
+    await t.close();
+  }
+});
