@@ -194,9 +194,10 @@ button.ball-sm:focus-visible { outline: 3px solid var(--gold); outline-offset: 2
   position: fixed; inset: 0; z-index: 20; display: grid; place-items: center;
   background: rgba(10, 4, 22, .72); cursor: pointer;
   overflow-x: hidden;   /* 光の放射（.rays）が画面より大きいので、横にずれないよう切る */
+  overflow-y: auto;     /* 画面の高さに収まらないとき（1366×768 など）は縦にスクロールしてボタンまで見られるように */
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
-.reveal-inner { position: relative; display: grid; place-items: center; gap: 10px; padding-inline: 16px; }
+.reveal-inner { position: relative; display: grid; place-items: center; gap: 10px; padding-inline: 16px; margin-block: auto; }   /* 収まらないときは上から表示（上が切れないように） */
 .rays {
   position: absolute; width: min(150vw, 900px); aspect-ratio: 1; left: 50%; top: 42%;
   transform: translate(-50%, -50%);
