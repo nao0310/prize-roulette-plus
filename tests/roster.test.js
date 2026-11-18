@@ -192,3 +192,14 @@ test("1位から抽選しているときや、抽選の前に増えたときは�
   assert.equal(await t.page.locator("#joinMsg").isHidden(), true);
   await t.close();
 });
+
+test("回し直しで外した番号があるときは、景品の数に足りなくなる削除はできない（外した番号の人は消せる）", async () => {
+  const t = await h.open({ hash: "members", storage: { [S]: { prizes: h.makePrizes(3), order2: "top", wins: { 0: 1 }, drawOrder: [0], absent: [2] }, [S + "-members"]: h.makeMembers({ 1: "A", 2: "B", 3: "C", 4: "D" }) } });
+  await t.page.click('#memBody button[data-del="3"]');
+  assert.match(await t.page.textContent("#rosterMsg"), /抽選の途中は削除できません/);
+  assert.equal(Object.keys((await h.stored(t.page, S + "-members")).members).length, 4);
+  await t.page.click('#memBody button[data-del="2"]'); await t.page.click('#memBody button[data-del="2"]');
+  assert.deepEqual(Object.keys((await h.stored(t.page, S + "-members")).members), ["1", "3", "4"]);
+  assert.deepEqual(t.errors, []);
+  await t.close();
+});

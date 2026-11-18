@@ -103,6 +103,23 @@ test("回転中に再読み込み：回し始めたときに決まっていた�
   await t.close();
 });
 
+test("保存データの回し始めの記録は、名簿にない番号や、抽選順で次でない景品なら使わない", async () => {
+  let t = await h.open({ storage: { [S]: { prizes: h.makePrizes(3), order2: "top", wins: {}, pendingSpin: { i: 0, n: 9 } }, [S + "-members"]: h.makeMembers({ 1: "A", 2: "B", 3: "C" }) } });
+  assert.equal(await t.page.locator("#reveal").isHidden(), true);
+  assert.deepEqual((await h.stored(t.page)).wins, {});
+  await t.close();
+  t = await h.open({ storage: { [S]: { prizes: h.makePrizes(3), people: 10, wins: {}, pendingSpin: { i: 0, n: 4 } } } });
+  assert.equal(await t.page.locator("#reveal").isHidden(), true);
+  assert.match(await t.page.textContent("#spinBtn"), /3位を抽選/);
+  await t.close();
+  // 抽選順で次の景品・対象の番号なら使う（回していたタブが閉じられた記録として）
+  t = await h.open({ storage: { [S]: { prizes: h.makePrizes(3), people: 10, wins: {}, pendingSpin: { i: 2, n: 4 } } } });
+  assert.equal(await t.page.locator("#reveal").isVisible(), true);
+  assert.equal(+(await t.page.textContent("#bigNum")), 4);
+  assert.deepEqual(t.errors, []);
+  await t.close();
+});
+
 test("止まったあと（当選画面）は、回し始めの記録が消えている", async () => {
   const t = await h.open({ clock: true, reducedMotion: true, storage: { [S]: { prizes: h.makePrizes(2), people: 10 } } });
   await h.spinOnce(t.page);

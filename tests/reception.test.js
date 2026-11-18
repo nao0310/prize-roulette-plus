@@ -147,8 +147,10 @@ test("受付モード中に再読み込みしても受付モードのまま。�
   const t = await h.open({ hash: "reception" });
   await t.page.click("#kStart");
   await t.page.evaluate(() => { location.hash = "members"; });
+  const before = t.consoleMsgs.length;
   await t.page.reload(); await t.page.waitForFunction(() => document.body.className.includes("view-"));
   assert.equal(await t.page.evaluate(() => document.body.classList.contains("kiosk")), true);
+  assert.deepEqual(t.consoleMsgs.slice(before).filter(m => /^(warning|error)/.test(m)), [], "再読み込みでコンソールに警告が出た");
   assert.equal(await t.page.evaluate(() => location.hash), "#reception");
   assert.equal(await t.page.locator(".tabs").isHidden(), true);
   assert.equal(await t.page.locator("#page-members").isHidden(), true);
