@@ -951,6 +951,10 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   let legacyDrawn = null;
   let storedSpin = null;           // 保存データにあった「回し始めた時点で決まっていた当選」{ i: 景品の添字, n: 番号 }
   let spinSaved = null, otherSpin = null;   // このタブで回している当選 / ほかのタブで回している当選（上書きしないよう持っておく）
+  // 回しているタブにだけ印を付けておく（再読み込みしたときに「このタブが回していた」と分かるように。ほかのタブには影響しない）
+  const SPIN_KEY = STORE + "-spin";
+  // 回し始めてからこの時間がたっても止まった記録がなければ、回していたタブは閉じられたとみなす（回転は長くても15秒ほど）
+  const SPIN_STALE_MS = 30000;
   // 名簿（任意）：番号 → 名前。抽選には使わず、当選番号に名前を添えて表示するだけ。
   // この端末のブラウザの中だけに置き、どこにも送信しない
   // members：番号 → { name: 名前またはニックネーム, kind: "name" | "nick" | "none", at: 受付時刻 }
@@ -1038,7 +1042,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
           const ps = s.pendingSpin;
           if (ps && typeof ps === "object") {
             const i = remap.get(Number(ps.i)), n = Number(ps.n);
-            if (i != null && wins[i] == null && isNum(n) && !used.has(n) && !absent.includes(n)) storedSpin = { i, n };
+            if (i != null && wins[i] == null && isNum(n) && !used.has(n) && !absent.includes(n)) storedSpin = { i, n, at: Number(ps.at) || 0 };
           }
         } else if (Array.isArray(s.drawn)) legacyDrawn = [...new Set(s.drawn.map(Number))].filter(n => isNum(n) && n <= N);
       }
@@ -1371,7 +1375,9 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     const n = wheelNums.length, seg = TAU / n;
     winIdx = Math.floor(rand() * n);
     // 当選番号は回し始めた時点で決まっているので、ここで保存しておく（回っている途中で再読み込みしても引き直しにならないように）
-    spinSaved = { i: spinIdx, n: wheelNums[winIdx] }; save();
+    spinSaved = { i: spinIdx, n: wheelNums[winIdx], at: Date.now() };
+    try { sessionStorage.setItem(SPIN_KEY, "1"); } catch (e) {}
+    save();
     const r0 = rotation;
     const top3 = np.rank <= 3;
     const fake = false;   // 行き過ぎて戻ってくる演出は使わない（常に前に進んで止まる）
@@ -1432,6 +1438,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
       wins[spinIdx] = num;
       drawOrder.push(spinIdx);
       spinSaved = null;
+      try { sessionStorage.removeItem(SPIN_KEY); } catch (e) {}
       save();
       if (syncWaiting) applySync();   // 回っている間にほかのタブで変わった名簿などを読み直す
       renderPlus();
@@ -2482,11 +2489,42 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   function applySync() {
     syncWaiting = false;
     loadMembers(); deriveRoster(); loadSettings(); loadState();
-    otherSpin = validSpin(storedSpin) ? storedSpin : null; storedSpin = null;   // ほかのタブで回している途中の当選は、そのタブが決める
+    const sp = storedSpin; storedSpin = null;
     if (hasRoster()) N = rosterPeople();   // 名簿の人数に合わせる（読み直しただけなので保存はしない）
     try { soundOn = localStorage.getItem(STORE + "-sound") !== "off"; } catch (e) {}
     if (pending !== null || !reveal.hidden) wheelDirty = true; else rebuildWheel();
     renderSound(); renderSide(); renderPlus();
+    // ほかのタブで回している途中の当選は、そのタブが決める（このタブで回している当選なら何もしない）
+    if (sp && spinSaved && sp.i === spinSaved.i && sp.n === spinSaved.n) otherSpin = null;
+    else takeSpin(sp, false);
+  }
+  // 保存データにあった「回し始めた時点の当選」の扱い
+  //  ・このタブが回していた（own）、または回していたタブが閉じられた（時間切れ）とき：その番号で当選画面を出す（引き直しにしない）
+  //  ・ほかのタブが回している途中のとき、受付モードのとき：そのまま持っておく（当選画面は出さない）
+  const spinFresh = sp => { const age = Date.now() - (sp.at || 0); return age >= -5000 && age < SPIN_STALE_MS; };
+  let otherTimer = null;
+  function takeSpin(sp, own) {
+    clearTimeout(otherTimer);
+    if (!validSpin(sp)) { otherSpin = null; return; }
+    const kiosk = document.body.classList.contains("kiosk");
+    if ((!own && spinFresh(sp)) || kiosk || spinning || beatTimer || pending !== null || !reveal.hidden) {
+      otherSpin = sp;
+      if (spinFresh(sp)) otherTimer = setTimeout(otherSpinCheck, SPIN_STALE_MS - (Date.now() - sp.at) + 200);
+      return;
+    }
+    otherSpin = null;
+    wins[sp.i] = sp.n; drawOrder.push(sp.i);
+    save(); rebuildWheel(); renderSide(); renderPlus();
+    if (view !== "draw") location.replace("#draw");
+    showReveal(sp.n);
+    document.getElementById("revealCount").textContent = "回転中に再読み込みされたため、回し始めたときに決まっていた当選番号を表示しています";
+  }
+  // ほかのタブの回転が時間切れになったら（そのタブが閉じられたら）、このタブで当選画面を出す
+  function otherSpinCheck() {
+    const sp = otherSpin;
+    if (!sp || spinFresh(sp)) return;
+    takeSpin(sp, false);
+    renderSide(); renderPlus();
   }
   addEventListener("storage", e => {
     if (e.storageArea && e.storageArea !== localStorage) return;
@@ -2507,15 +2545,10 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   // 受付モードのまま再読み込みされたとき：受付モードに戻す（全画面はブラウザの制約で自動では戻せない）
   try { if (sessionStorage.getItem(KIOSK_KEY)) setKiosk(true, false); } catch (e) {}
   // 回っている途中で再読み込みされたとき：回し始めた時点で決まっていた当選番号で当選画面を出す
-  if (storedSpin && !validSpin(storedSpin)) storedSpin = null;   // 名簿や景品が変わって使えなくなったものは捨てる
-  if (storedSpin) {
-    const { i, n } = storedSpin; storedSpin = null;
-    wins[i] = n; drawOrder.push(i);
-    save(); rebuildWheel(); renderSide(); renderPlus();
-    if (view !== "draw") location.replace("#draw");
-    showReveal(n);
-    document.getElementById("revealCount").textContent = "回転中に再読み込みされたため、回し始めたときに決まっていた当選番号を表示しています";
-  }
+  // （名簿や景品が変わって使えなくなったものは捨てる。ほかのタブが回している途中なら、そのタブに任せる）
+  let ownSpin = false;
+  try { ownSpin = !!sessionStorage.getItem(SPIN_KEY); sessionStorage.removeItem(SPIN_KEY); } catch (e) {}
+  { const sp = storedSpin; storedSpin = null; takeSpin(sp, ownSpin); }
   requestAnimationFrame(frame);
 })();
 </script>
