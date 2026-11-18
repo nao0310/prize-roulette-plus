@@ -384,7 +384,7 @@ body.tension .wheel-box { transform: scale(1.035); }
   .people-row input { font-size: 15px; width: 72px; }
   .people-row, .list-head { font-size: 12px; }
   .prize-list { grid-template-columns: minmax(0, 1fr); }
-  #loadMsg, #absentMsg { display: none !important; }
+  #loadMsg, #absentMsg, #joinMsg { display: none !important; }
   .reveal-inner {
     grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "ball rank" "ball text";
     column-gap: 24px; row-gap: 6px; align-items: center; max-width: 94vw;
@@ -635,6 +635,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
           <span class="people-note" id="peopleNote"></span>
         </div>
         <p class="absent-msg" id="absentMsg" hidden></p>
+        <p class="roster-msg" id="joinMsg" role="status" hidden></p>
         <ol class="prize-list" id="prizeList"></ol>
       </div>
     </aside>
@@ -1358,6 +1359,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     const np = nextPrize();
     if (!np || !wheelNums.length) return;
     spinIdx = nextIdx();
+    joinNote = ""; document.getElementById("joinMsg").hidden = true;
     audio();
     const n = wheelNums.length, seg = TAU / n;
     winIdx = Math.floor(rand() * n);
@@ -1592,7 +1594,18 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     listEl.style.gridTemplateRows = desktop() ? `repeat(${Math.ceil(n / cols)}, minmax(32px, 1fr))` : "";
   }
 
+  // 下位から抽選している途中で参加者が増え、抽選する景品が増えたときのお知らせ（次の景品が下の順位に戻るため）
+  let lastTotal = -1, joinNote = "";
+  function noteJoin() {
+    const t = total();
+    if (!busy()) joinNote = "";
+    else if (order === "bottom" && lastTotal >= 0 && t > lastTotal && nextPrize()) joinNote = `参加者が増えたので、${nextPrize().rank}位も抽選します（次は${nextPrize().rank}位）`;
+    lastTotal = t;
+    const el = document.getElementById("joinMsg");
+    el.hidden = !joinNote; el.textContent = joinNote;
+  }
   function renderSide() {
+    noteJoin();
     const np = nextPrize();
     document.getElementById("nextTitle").textContent = np ? "次の景品" : "抽選終了";
     document.getElementById("nextRank").innerHTML = np ? `${esc(np.rank)}<small>位</small>` : "END";

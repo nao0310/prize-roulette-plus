@@ -153,3 +153,32 @@ test("名簿なし（1〜参加人数）で抽選している途中は、受付�
   assert.equal(await t.page.locator("#kTicket").isVisible(), true);
   await t.close();
 });
+
+test("下位から抽選中に参加者が増えて景品が増えたら、次の景品が変わったことを表示する", async () => {
+  const t = await h.open({ clock: true, reducedMotion: true, storage: { [S]: { prizes: h.makePrizes(5) }, [S + "-members"]: h.makeMembers({ 1: "A", 2: "B", 3: "C" }) } });
+  await h.spinOnce(t.page); await h.closeReveal(t.page);
+  assert.equal(await t.page.locator("#joinMsg").isHidden(), true);
+  await t.page.evaluate(() => location.hash = "members");
+  await t.page.fill("#memAddName", "D"); await t.page.click("#memAddForm button[type=submit]");
+  await t.page.evaluate(() => location.hash = "draw"); await t.page.clock.runFor(100);
+  assert.equal(await t.page.textContent("#joinMsg"), "参加者が増えたので、4位も抽選します（次は4位）");
+  assert.equal(await t.page.locator("#joinMsg").isVisible(), true);
+  await h.spinOnce(t.page);
+  assert.equal(parseInt(await t.page.textContent("#revealRank"), 10), 4);
+  await h.closeReveal(t.page);
+  assert.equal(await t.page.locator("#joinMsg").isHidden(), true);
+  await t.close();
+});
+
+test("1位から抽選しているときや、抽選の前に増えたときは表示しない", async () => {
+  const t = await h.open({ clock: true, reducedMotion: true, storage: { [S]: { prizes: h.makePrizes(5), order2: "top" }, [S + "-members"]: h.makeMembers({ 1: "A", 2: "B", 3: "C" }) } });
+  await t.page.evaluate(() => location.hash = "members");
+  await t.page.fill("#memAddName", "D"); await t.page.click("#memAddForm button[type=submit]");
+  await t.page.evaluate(() => location.hash = "draw");
+  await h.spinOnce(t.page); await h.closeReveal(t.page);
+  await t.page.evaluate(() => location.hash = "members");
+  await t.page.fill("#memAddName", "E"); await t.page.click("#memAddForm button[type=submit]");
+  await t.page.evaluate(() => location.hash = "draw"); await t.page.clock.runFor(100);
+  assert.equal(await t.page.locator("#joinMsg").isHidden(), true);
+  await t.close();
+});
