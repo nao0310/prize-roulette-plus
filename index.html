@@ -1711,7 +1711,9 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     } else {
       wb = XLSX.read(buf, { type: "array" });
     }
-    return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, blankrows: false, raw: false });
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, blankrows: false, raw: false });
+    // 書き出しで数式対策として付けた先頭の ' を外す（= + - @ などの前に付いたものだけ）。画面では文字として扱うので安全
+    return rows.map(r => (r || []).map(v => typeof v === "string" ? v.replace(/^'(?=[=+\-@\t\r])/, "") : v));
   }
 
   // 名簿の読み取り：「番号」「名前」の見出しがあればその列、なければA列=番号・B列=名前

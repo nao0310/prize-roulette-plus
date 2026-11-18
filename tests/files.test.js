@@ -117,7 +117,17 @@ test("CSV書き出し：数式に見える値の先頭に ' を付ける。書�
   await t.page.evaluate(() => location.hash = "prizes");
   const { text } = await downloadText(t.page, "#prizeExport");
   await loadPrizes(t.page, { name: "re.csv", mimeType: "text/csv", buffer: Buffer.from(text) });
-  assert.equal((await names(t.page)).length, evil.length);
+  assert.deepEqual(await names(t.page), evil.map(n => n.trim()));
+  // 名簿も書き出して読み込み直すと、名前が元に戻る
+  await t.page.evaluate(() => location.hash = "members");
+  const m = await downloadText(t.page, "#memExport");
+  await loadRoster(t.page, { name: "m.csv", mimeType: "text/csv", buffer: Buffer.from(m.text) });
+  const back = (await h.stored(t.page, S + "-members")).members;
+  assert.deepEqual(Object.values(back).map(v => v.name), evil.map(n => n.trim()));
+  // もともと ' で始まる普通の名前はそのまま
+  await loadPrizes(t.page, csvFile("q.csv", "順位,景品名\n1,'90s グッズ\n"));
+  await t.page.evaluate(() => location.hash = "prizes");
+  assert.deepEqual(await names(t.page), ["'90s グッズ"]);
   await t.close();
 });
 
