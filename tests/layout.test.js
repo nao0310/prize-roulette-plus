@@ -175,3 +175,13 @@ test("受付モード：中身が画面に収まるときは縦のスクロー�
     await t.close();
   }
 });
+
+test("受付の管理画面（受付モードの前）：PC の画面（1280×720 など）で縦のスクロールバーが出ない", async () => {
+  for (const vp of [{ width: 1920, height: 1080 }, { width: 1366, height: 768 }, { width: 1280, height: 720 }]) {
+    const t = await h.open({ viewport: vp, hash: "reception", storage: { [S + "-settings"]: { eventName: "第10回 抽選会" } } });
+    await t.page.waitForTimeout(200);
+    const over = await t.page.evaluate(() => { const p = document.getElementById("page-reception"); return p.scrollHeight - p.clientHeight; });
+    assert.ok(over <= 0, `${vp.width}x${vp.height}：受付の管理画面が ${over}px 縦にスクロールする`);
+    await t.close();
+  }
+});

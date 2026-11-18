@@ -514,7 +514,7 @@ input.text::placeholder, textarea.text::placeholder { color: #7d6a9e; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* ================= 受付（キオスク） ================= */
-.kiosk { display: grid; gap: 14px; padding-block: 4px 28px; }
+.kiosk { display: grid; gap: 14px; padding-block: 4px 16px; }   /* 下の余白は控えめに（1280×720 の画面で、受付の管理画面が数pxだけ縦にスクロールしないように） */
 .kiosk-admin { max-width: 760px; width: 100%; margin: 0 auto; display: grid; gap: 10px; box-sizing: border-box; }
 .kiosk-stats { display: flex; gap: 8px 20px; flex-wrap: wrap; font-size: 14px; color: var(--ink-dim); }
 .kiosk-stats b { color: var(--ink); font-family: var(--font-display); font-size: 18px; margin-inline: 2px; }
