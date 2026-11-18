@@ -1471,8 +1471,8 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     whoEl.hidden = !who;
     whoEl.textContent = who;
     if (who) { const sm = document.createElement("small"); sm.textContent = "さん"; whoEl.appendChild(sm); replay(whoEl); }
-    const done = !nextPrize();
-    document.getElementById("revealCount").textContent = done ? "すべての景品の抽選が終わりました！" : `${drawnCount()} / ${total()} 本目`;
+    revealNum = num; revealNote = "";
+    revealTexts();
 
     // ときどき出る特別演出
     let tag = "";
@@ -1485,8 +1485,6 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     [rankEl, prizeEl, tagEl, document.getElementById("bigBall")].forEach(replay);
 
     const nb = document.getElementById("nextBtn");
-    const np = nextPrize();
-    nb.textContent = np ? `次の ${np.rank}位 を回す` : "結果発表へ";
     reveal.hidden = false;
     if (!reduced) {
       flash.classList.remove("go"); void flash.offsetWidth; flash.classList.add("go");
@@ -1497,6 +1495,13 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     fanfare(prize.rank <= 3);
     updateSpinBtn();
     nb.focus({ preventScroll: true });
+  }
+  // 当選画面の「○ / ○ 本目」と「次の○位を回す」（ほかのタブで状態が変わったときも、これで最新にする）
+  let revealNum = null, revealNote = "";
+  function revealTexts() {
+    const np = nextPrize();
+    document.getElementById("revealCount").textContent = revealNote || (!np ? "すべての景品の抽選が終わりました！" : `${drawnCount()} / ${total()} 本目`);
+    document.getElementById("nextBtn").textContent = np ? `次の ${np.rank}位 を回す` : "結果発表へ";
   }
   function closeReveal() {
     reveal.hidden = true;
@@ -2504,6 +2509,9 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     else takeSpin(sp, false);
     if (pending !== null || !reveal.hidden) wheelDirty = true; else rebuildWheel();
     renderSound(); renderSide(); renderPlus();
+    // 開いている当選画面・結果：ほかのタブのリセットや回し直しで当選が消えていたら閉じ、残っていれば「次の○位」などを最新にする
+    if (!reveal.hidden) { if (wins[revealIdx] !== revealNum) closeReveal(); else revealTexts(); }
+    if (!resultEl.hidden && !drawnCount()) resultEl.hidden = true;
   }
   // 保存データにあった「回し始めた時点の当選」の扱い
   //  ・このタブが回していた（own）、または回していたタブが閉じられた（時間切れ）とき：その番号で当選画面を出す（引き直しにしない）
@@ -2523,7 +2531,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     save(); rebuildWheel(); renderSide(); renderPlus();
     if (view !== "draw") location.replace("#draw");
     showReveal(sp.n);
-    document.getElementById("revealCount").textContent = "回転中に再読み込みされたため、回し始めたときに決まっていた当選番号を表示しています";
+    revealNote = "回転中に再読み込みされたため、回し始めたときに決まっていた当選番号を表示しています"; revealTexts();
   }
   // ほかのタブの回転が時間切れになったら（そのタブが閉じられたら）、このタブで当選画面を出す
   function otherSpinCheck() {
