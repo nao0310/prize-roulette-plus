@@ -273,6 +273,8 @@ body.tension .wheel-box { transform: scale(1.035); }
 .confirm .card { max-width: 360px; display: grid; gap: 14px; text-align: center; }
 .confirm p { margin: 0; font-weight: 800; font-size: 16px; line-height: 1.5; }
 .confirm .row { display: flex; gap: 10px; justify-content: center; }
+.confirm .card > .chip { justify-self: center; }
+.confirm p.hint2 { font-size: 13px; font-weight: 500; color: var(--ink-dim); }
 .danger { background: var(--red); color: #fff; border-color: var(--red); }
 
 /* ---- リザルト ---- */
@@ -880,6 +882,8 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
 <div class="confirm" id="confirm" hidden>
   <div class="card">
     <p>当選番号をすべて消して、最初からやり直しますか？<br>（景品の一覧はそのまま残ります）</p>
+    <p class="hint2" id="resetHint" hidden>抽選結果が必要なら、先にCSVで書き出してください。</p>
+    <button class="chip" id="resetExport" type="button" hidden>抽選結果をCSVで書き出す</button>
     <div class="row">
       <button class="chip" id="cancelReset" type="button">やめる</button>
       <button class="chip danger" id="doReset" type="button">リセットする</button>
@@ -1874,7 +1878,15 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
 
   // ---------- リセット・音 ----------
   const confirmEl = document.getElementById("confirm");
-  document.getElementById("resetBtn").addEventListener("click", () => { if (!spinning && !beatTimer) confirmEl.hidden = false; });
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    if (spinning || beatTimer) return;
+    // 当選があるときは、リセットの前に結果を書き出せるよう案内する
+    const has = drawnCount() > 0 || absent.length > 0;
+    const hint = document.getElementById("resetHint");
+    hint.hidden = !has; hint.textContent = "抽選結果が必要なら、先にCSVで書き出してください。";
+    document.getElementById("resetExport").hidden = !has;
+    confirmEl.hidden = false;
+  });
   document.getElementById("cancelReset").addEventListener("click", () => { confirmEl.hidden = true; });
   document.getElementById("doReset").addEventListener("click", () => {
     confirmEl.hidden = true; reveal.hidden = true; resultEl.hidden = true; pending = null; winIdx = -1;
@@ -2157,6 +2169,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   $("memExport").addEventListener("click", () => { download(`${fileBase()}_名簿_${today()}.csv`, membersCSV()); renderRoster("名簿をCSVで書き出しました。名前が入っているので、扱いに注意してください"); });
   $("expPrizes").addEventListener("click", () => { download(`${fileBase()}_景品_${today()}.csv`, prizesCSV()); $("expMsg").textContent = "景品と当選番号を書き出しました"; });
   $("expMembers").addEventListener("click", () => { download(`${fileBase()}_名簿_${today()}.csv`, membersCSV()); $("expMsg").textContent = "名簿を書き出しました"; });
+  $("resetExport").addEventListener("click", () => { download(`${fileBase()}_抽選結果_${today()}.csv`, resultsCSV()); $("resetHint").textContent = "抽選結果を書き出しました。"; });
   $("expResults").addEventListener("click", () => { download(`${fileBase()}_抽選結果_${today()}.csv`, resultsCSV()); $("expMsg").textContent = drawOrder.length ? "抽選結果を書き出しました" : "まだ抽選していないので、見出しだけのファイルになりました"; });
 
   // ======================================================================

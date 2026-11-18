@@ -181,3 +181,21 @@ test("抽選の途中は参加人数・順番・景品の読み込みを変え�
   assert.equal(await t.page.locator("#loadBtn").isDisabled(), true);
   await t.close();
 });
+
+test("リセットの確認：当選があるときは結果の書き出しを案内し、書き出せる。当選がないときは出さない", async () => {
+  const t = await h.open({ clock: true, reducedMotion: true, storage: { [S]: { prizes: h.makePrizes(2), people: 10 } } });
+  await t.page.click("#resetBtn");
+  assert.equal(await t.page.locator("#resetExport").isHidden(), true);
+  await t.page.click("#cancelReset");
+  const n = await h.spinOnce(t.page); await h.closeReveal(t.page);
+  await t.page.click("#resetBtn");
+  assert.equal(await t.page.locator("#resetHint").isVisible(), true);
+  const [dl] = await Promise.all([t.page.waitForEvent("download"), t.page.click("#resetExport")]);
+  assert.match(dl.suggestedFilename(), /抽選結果.*\.csv$/);
+  assert.match(require("fs").readFileSync(await dl.path(), "utf8"), new RegExp(`^\uFEFF抽選した順[^\n]*\r\n1,2,景品2,${n},`));
+  assert.equal(await t.page.locator("#confirm").isVisible(), true);   // 書き出しても確認は閉じない
+  assert.match(await t.page.textContent("#resetHint"), /書き出しました/);
+  await t.page.click("#doReset");
+  assert.deepEqual((await h.stored(t.page)).wins, {});
+  await t.close();
+});
