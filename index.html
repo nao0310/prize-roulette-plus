@@ -2562,7 +2562,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   // （名簿や景品が変わって使えなくなったものは捨てる。ほかのタブが回している途中なら、そのタブに任せる）
   let ownSpin = false;
   try { ownSpin = !!sessionStorage.getItem(SPIN_KEY); sessionStorage.removeItem(SPIN_KEY); } catch (e) {}
-  { const sp = storedSpin; storedSpin = null; takeSpin(sp, ownSpin); }
+  { const sp = storedSpin; storedSpin = null; takeSpin(sp, ownSpin); if (otherSpin) { renderSide(); renderPlus(); } }   // ほかのタブで回している途中なら、変更できない表示にする
   requestAnimationFrame(frame);
 })();
 </script>
