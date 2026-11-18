@@ -955,6 +955,9 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   const SPIN_KEY = STORE + "-spin";
   // 回し始めてからこの時間がたっても止まった記録がなければ、回していたタブは閉じられたとみなす（回転は長くても15秒ほど）
   const SPIN_STALE_MS = 30000;
+  const spinFresh = sp => { const age = Date.now() - (sp.at || 0); return age >= -5000 && age < SPIN_STALE_MS; };
+  // ほかのタブでルーレットが回っている途中か（その間は、このタブでも「抽選の途中」と同じく変更できないようにする）
+  const othersSpinning = () => !!otherSpin && spinFresh(otherSpin);
   // 名簿（任意）：番号 → 名前。抽選には使わず、当選番号に名前を添えて表示するだけ。
   // この端末のブラウザの中だけに置き、どこにも送信しない
   // members：番号 → { name: 名前またはニックネーム, kind: "name" | "nick" | "none", at: 受付時刻 }
@@ -1364,7 +1367,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
      4. 一拍   : 止まってから0.65秒の沈黙のあと発表
   */
   function spin() {
-    if (spinning || beatTimer || !confirmEl.hidden || !resultEl.hidden || !redoEl.hidden) return;
+    if (spinning || beatTimer || othersSpinning() || !confirmEl.hidden || !resultEl.hidden || !redoEl.hidden) return;
     if (pending !== null) closeReveal();
     if (wheelDirty) { wheelDirty = false; rebuildWheel(); }
     const np = nextPrize();
@@ -1660,6 +1663,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
 
   function updateSpinBtn() {
     if (spinning || beatTimer) return;
+    if (othersSpinning()) { spinBtn.disabled = true; spinBtn.textContent = "ほかのタブで抽選中"; return; }
     const np = nextPrize();
     spinBtn.disabled = !np || !wheelNums.length;
     spinBtn.textContent = !prizes.length ? "景品を登録してください" : !np ? "抽選終了" : wheelNums.length ? `${np.rank}位を抽選！`
@@ -1674,7 +1678,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   const orderBtn = document.getElementById("orderBtn");
   function setMsg(text, isError) { loadMsg.textContent = text; loadMsg.classList.toggle("error", !!isError); }
   function setPrizeTools() {
-    const locked = busy() || spinning || beatTimer;
+    const locked = busy() || spinning || beatTimer || othersSpinning();
     loadBtn.disabled = locked; dummyBtn.disabled = locked || isDummy; orderBtn.disabled = locked;
     peopleInput.disabled = locked || hasRoster();
     peopleInput.title = hasRoster() ? "名簿を読み込んでいる間は、参加人数を名簿に合わせます（変えるときは「名簿を外す」）"
@@ -1814,7 +1818,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     save();
   }
   async function loadRoster(file) {
-    if (spinning || beatTimer) { renderRoster("ルーレットが回っている間は名簿を読み込めません。止まってから読み込んでください。", true); return; }
+    if (spinning || beatTimer || othersSpinning()) { renderRoster("ルーレットが回っている間は名簿を読み込めません。止まってから読み込んでください。", true); return; }
     if (typeof XLSX === "undefined") { renderRoster("名簿を読む部品を読み込めませんでした。ページを再読み込みしてください。", true); return; }
     try {
       const { names, count, dup } = parseRoster(await readRows(file));
@@ -1830,7 +1834,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   document.getElementById("rosterBtn").addEventListener("click", () => rosterInput.click());
   rosterInput.addEventListener("change", () => { const f = rosterInput.files[0]; if (f) loadRoster(f); rosterInput.value = ""; });
   rosterClear.addEventListener("click", () => {
-    if (spinning || beatTimer) return;
+    if (spinning || beatTimer || othersSpinning()) return;
     if (busy()) { renderRoster("抽選の途中は名簿を全部消すことはできません。リセットしてから消してください。", true); return; }
     if (!rosterClear.classList.contains("armed")) {   // 誤操作防止：2回押しで実行
       rosterClear.classList.add("armed"); rosterClear.textContent = "本当に全員消す？（もう一度押す）";
@@ -1858,7 +1862,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     document.getElementById("peopleNote").textContent = notes.join("／");
   }
   function applyPeople() {
-    if (busy() || spinning || beatTimer) { renderPeople(); return; }
+    if (busy() || spinning || beatTimer || othersSpinning()) { renderPeople(); return; }
     let v = parseInt(peopleInput.value, 10);
     if (isNaN(v)) v = N;
     v = Math.min(MAX_PEOPLE, Math.max(MIN_PEOPLE, v));
@@ -1882,14 +1886,14 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     e.preventDefault();
     const f = e.dataTransfer.files[0];
     if (!f || view !== "prizes") return;
-    if (busy() || spinning || beatTimer) { setMsg("抽選の途中は景品を変更できません。リセットしてから読み込んでください。", true); return; }
+    if (isLocked()) { setMsg("抽選の途中は景品を変更できません。リセットしてから読み込んでください。", true); return; }
     loadFile(f);
   });
 
   // ---------- リセット・音 ----------
   const confirmEl = document.getElementById("confirm");
   document.getElementById("resetBtn").addEventListener("click", () => {
-    if (spinning || beatTimer) return;
+    if (spinning || beatTimer || othersSpinning()) return;
     // 当選があるときは、リセットの前に結果を書き出せるよう案内する
     const has = drawnCount() > 0 || absent.length > 0;
     const hint = document.getElementById("resetHint");
@@ -1899,6 +1903,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   });
   document.getElementById("cancelReset").addEventListener("click", () => { confirmEl.hidden = true; });
   document.getElementById("doReset").addEventListener("click", () => {
+    if (othersSpinning()) { confirmEl.hidden = true; return; }
     confirmEl.hidden = true; reveal.hidden = true; resultEl.hidden = true; pending = null; winIdx = -1;
     wins = {}; drawOrder = []; absent = []; otherSpin = null; save(); syncPeopleToRoster(); wheelDirty = false; rebuildWheel(); renderSide(); renderPlus();
   });
@@ -1907,7 +1912,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   const redoEl = document.getElementById("redoConfirm");
   let redoIdx = -1;
   function askRedo(idx) {
-    if (spinning || beatTimer || wins[idx] == null) return;
+    if (spinning || beatTimer || othersSpinning() || wins[idx] == null) return;
     redoIdx = idx;
     const p = prizes[idx];
     document.getElementById("redoText").textContent =
@@ -1918,7 +1923,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   function doRedo() {
     const idx = redoIdx, num = wins[idx];
     redoEl.hidden = true;
-    if (num == null) return;
+    if (num == null || othersSpinning()) return;
     if (!reveal.hidden || pending !== null) closeReveal();
     resultEl.hidden = true;
     delete wins[idx];
@@ -2006,7 +2011,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   const fmtTime = t => { if (!t) return ""; const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
   const fmtFull = t => { if (!t) return ""; const d = new Date(t); return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
   const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
-  const isLocked = () => busy() || spinning || !!beatTimer;
+  const isLocked = () => busy() || spinning || !!beatTimer || othersSpinning();
 
   // 誤操作防止：1回目で「本当に？」に変わり、数秒以内にもう一度押したときだけ実行する
   function armed(btn, label, fn) {
@@ -2287,6 +2292,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   $("memBody").addEventListener("click", e => {
     const b = e.target.closest("button[data-del]"); if (!b || b.disabled) return;
     const n = +b.dataset.del;
+    if (othersSpinning()) { renderRoster("ルーレットが回っている間は削除できません。止まってから操作してください。", true); return; }
     // 抽選の途中で、景品が人数と同じか多いときは消さない（番号が足りなくなり、最後の景品（1位など）を抽選できなくなるため）
     // 当選者なしで外した番号は抽選に使えないので、人数から引いて数える
     const usable = poolSize() - absent.filter(a => Object.prototype.hasOwnProperty.call(roster, a)).length;
@@ -2295,7 +2301,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
       return;
     }
     armed(b, "消す？", () => {
-      if (Object.values(wins).includes(n)) return;
+      if (Object.values(wins).includes(n) || othersSpinning()) return;
       delete members[n];
       membersChanged();
       renderRoster(`${n}番を名簿から削除しました`);
@@ -2461,7 +2467,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   });
   $("restoreNo").addEventListener("click", () => { pendingBackup = null; $("restoreRow").hidden = true; $("backupMsg").textContent = "戻すのをやめました"; });
   $("restoreYes").addEventListener("click", () => {
-    if (!pendingBackup || spinning || beatTimer) return;
+    if (!pendingBackup || spinning || beatTimer || othersSpinning()) return;
     try {
       localStorage.setItem(STORE, JSON.stringify(pendingBackup.state));
       if (pendingBackup.members && pendingBackup.members.members) localStorage.setItem(STORE + "-members", JSON.stringify(pendingBackup.members));
@@ -2472,7 +2478,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     location.reload();   // 読み込み時のチェックを通して、安全に反映する
   });
   $("wipeAll").addEventListener("click", e => {
-    if (spinning || beatTimer) return;
+    if (spinning || beatTimer || othersSpinning()) return;
     armed(e.currentTarget, "本当にすべて消す？（もう一度押す）", () => {
       try { [STORE, STORE + "-members", STORE + "-settings", STORE + "-sound"].forEach(k => localStorage.removeItem(k)); } catch (err) {}
       location.hash = "draw";
@@ -2492,16 +2498,15 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     const sp = storedSpin; storedSpin = null;
     if (hasRoster()) N = rosterPeople();   // 名簿の人数に合わせる（読み直しただけなので保存はしない）
     try { soundOn = localStorage.getItem(STORE + "-sound") !== "off"; } catch (e) {}
-    if (pending !== null || !reveal.hidden) wheelDirty = true; else rebuildWheel();
-    renderSound(); renderSide(); renderPlus();
     // ほかのタブで回している途中の当選は、そのタブが決める（このタブで回している当選なら何もしない）
     if (sp && spinSaved && sp.i === spinSaved.i && sp.n === spinSaved.n) otherSpin = null;
     else takeSpin(sp, false);
+    if (pending !== null || !reveal.hidden) wheelDirty = true; else rebuildWheel();
+    renderSound(); renderSide(); renderPlus();
   }
   // 保存データにあった「回し始めた時点の当選」の扱い
   //  ・このタブが回していた（own）、または回していたタブが閉じられた（時間切れ）とき：その番号で当選画面を出す（引き直しにしない）
   //  ・ほかのタブが回している途中のとき、受付モードのとき：そのまま持っておく（当選画面は出さない）
-  const spinFresh = sp => { const age = Date.now() - (sp.at || 0); return age >= -5000 && age < SPIN_STALE_MS; };
   let otherTimer = null;
   function takeSpin(sp, own) {
     clearTimeout(otherTimer);
