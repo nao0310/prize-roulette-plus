@@ -1438,15 +1438,16 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     beatTimer = setTimeout(() => {
       beatTimer = null;
       document.body.classList.remove("is-spinning");
-      wins[spinIdx] = num;
-      drawOrder.push(spinIdx);
+      // 回っている間にほかのタブで変わった名簿などを、先に読み直してから当選を書き込む（古い内容で相手の変更を上書きしないように）
+      if (syncWaiting) applySync();
       spinSaved = null;
       try { sessionStorage.removeItem(SPIN_KEY); } catch (e) {}
+      if (wins[spinIdx] == null && prizes[spinIdx] && !Object.values(wins).includes(num) && !absent.includes(num)) { wins[spinIdx] = num; drawOrder.push(spinIdx); }
       save();
-      if (syncWaiting) applySync();   // 回っている間にほかのタブで変わった名簿などを読み直す
       renderPlus();
       renderSide();
-      showReveal(num);
+      if (wins[spinIdx] !== num) { closeReveal(); return; }   // 読み直した内容では書き込めないとき（通常は起きない）
+      showReveal(num, spinIdx);
     }, reduced ? 0 : 650);
   }
 
@@ -1454,8 +1455,8 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   const reveal = document.getElementById("reveal");
   const flash = document.getElementById("flash");
   function replay(el) { el.style.animation = "none"; void el.offsetWidth; el.style.animation = ""; }
-  function showReveal(num) {
-    revealIdx = drawOrder[drawOrder.length - 1];
+  function showReveal(num, idx = drawOrder[drawOrder.length - 1]) {
+    revealIdx = idx;
     const prize = prizes[revealIdx];
     reveal.style.setProperty("--c", colorOf(num));
     const rankEl = document.getElementById("revealRank");
