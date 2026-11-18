@@ -1937,13 +1937,13 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   // 誤操作防止：1回目で「本当に？」に変わり、数秒以内にもう一度押したときだけ実行する
   function armed(btn, label, fn) {
     if (!btn.classList.contains("armed")) {
-      const orig = btn.textContent;
+      btn._armOrig = btn.textContent;
       btn.classList.add("armed"); btn.textContent = label;
       clearTimeout(btn._armT);
-      btn._armT = setTimeout(() => { btn.classList.remove("armed"); btn.textContent = orig; }, 3500);
+      btn._armT = setTimeout(() => { btn.classList.remove("armed"); btn.textContent = btn._armOrig; }, 3500);
       return;
     }
-    clearTimeout(btn._armT); btn.classList.remove("armed");
+    clearTimeout(btn._armT); btn.classList.remove("armed"); btn.textContent = btn._armOrig;   // 実行したら表示を元に戻す
     fn();
   }
 
