@@ -67,8 +67,9 @@ for (const [label, opts] of TARGETS) {
     if (!await inView(t.page, "#redoBtn", true)) fails.push("当選画面の回し直しボタンが見えない");
     if (!await inView(t.page, "#nextBtn", true) && !await t.page.locator("#nextBtn").evaluate(b => { b.scrollIntoView(); const r = b.getBoundingClientRect(); return r.bottom <= innerHeight; })) fails.push("当選画面の次へボタンが見えない");
     await check("reveal");
-    const rv = await t.page.locator("#reveal").evaluate(r => ({ sw: r.scrollWidth, cw: r.clientWidth }));
-    if (rv.sw > rv.cw + 1) fails.push(`当選画面が横にスクロールする ${rv.sw} > ${rv.cw}`);
+    // 光の放射は画面より大きい飾りなので、枠で切られていて（横にスクロールできず）よい
+    const rv = await t.page.locator("#reveal").evaluate(r => ({ sw: r.scrollWidth, cw: r.clientWidth, ox: getComputedStyle(r).overflowX }));
+    if (rv.sw > rv.cw + 1 && !["hidden", "clip"].includes(rv.ox)) fails.push(`当選画面が横にスクロールする ${rv.sw} > ${rv.cw}`);
     await h.closeReveal(t.page);
     // リザルト
     await t.page.evaluate(() => document.getElementById("resultBtn").click());
