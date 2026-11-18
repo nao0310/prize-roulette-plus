@@ -142,3 +142,29 @@ test("「番号をもらう」の二重クリック・Enter連打でも、番号
   assert.equal(Object.keys((await h.stored(t.page, S + "-members")).members).length, 2);
   await t.close();
 });
+
+test("受付モード中に再読み込みしても受付モードのまま。終了後の再読み込みでは戻らない", async () => {
+  const t = await h.open({ hash: "reception" });
+  await t.page.click("#kStart");
+  await t.page.evaluate(() => { location.hash = "members"; });
+  await t.page.reload(); await t.page.waitForFunction(() => document.body.className.includes("view-"));
+  assert.equal(await t.page.evaluate(() => document.body.classList.contains("kiosk")), true);
+  assert.equal(await t.page.evaluate(() => location.hash), "#reception");
+  assert.equal(await t.page.locator(".tabs").isHidden(), true);
+  assert.equal(await t.page.locator("#page-members").isHidden(), true);
+  assert.equal(await t.page.locator("#kStaff").isVisible(), true);
+  assert.equal(await t.page.locator("#kForm").isVisible(), true);
+  // スタッフボタンで終了 → 再読み込みしても受付モードに戻らない
+  const box = await t.page.locator("#kStaff").boundingBox();
+  await t.page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await t.page.mouse.down(); await t.page.waitForTimeout(2300); await t.page.mouse.up();
+  await t.page.reload(); await t.page.waitForFunction(() => document.body.className.includes("view-"));
+  assert.equal(await t.page.evaluate(() => document.body.classList.contains("kiosk")), false);
+  // 別のタブは受付モードにならない
+  const other = await t.context.newPage();
+  await t.page.click("#kStart");
+  await other.goto(t.page.url().replace(/#.*$/, "") + "#draw"); await other.waitForFunction(() => document.body.className.includes("view-"));
+  assert.equal(await other.evaluate(() => document.body.classList.contains("kiosk")), false);
+  assert.deepEqual(t.errors, []);
+  await t.close();
+});
