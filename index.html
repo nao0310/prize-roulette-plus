@@ -2278,7 +2278,9 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     const b = e.target.closest("button[data-del]"); if (!b || b.disabled) return;
     const n = +b.dataset.del;
     // 抽選の途中で、景品が人数と同じか多いときは消さない（番号が足りなくなり、最後の景品（1位など）を抽選できなくなるため）
-    if (busy() && !absent.includes(n) && prizes.length >= poolSize()) {
+    // 当選者なしで外した番号は抽選に使えないので、人数から引いて数える
+    const usable = poolSize() - absent.filter(a => Object.prototype.hasOwnProperty.call(roster, a)).length;
+    if (busy() && !absent.includes(n) && prizes.length >= usable) {
       renderRoster("抽選の途中は削除できません（景品の数に対して参加者が足りなくなるため）。当選者がいない場合は「回し直し」を使ってください", true);
       return;
     }
