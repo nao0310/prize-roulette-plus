@@ -1637,7 +1637,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
       const rc = row.findIndex(v => /^(順位|順番|位|ランク|rank|no\.?|#)$/i.test(v));
       const nc = row.findIndex(v => v.length <= 8 && /^(景品|賞品|商品|品名|prize|name)/i.test(v));
       if (rc >= 0 || nc >= 0) {
-        if (rc >= 0) rankCol = rc;
+        rankCol = rc;   // 見出しに順位の列がなければ順位は読まない（行の順のまま。景品名の中の数字を順位にしない）
         nameCol = nc >= 0 ? nc : (rankCol === 0 ? 1 : 0);
         start = r + 1;
         break;
