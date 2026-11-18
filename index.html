@@ -997,7 +997,8 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
           remap.set(i, list.length);
           list.push({ rank: list.length + 1, name });
         });
-        if (list.length) { prizes = list; isDummy = !!s.isDummy; }
+        // 「すべて消す」で空にした一覧（空の配列）も、そのまま空として戻す
+        if (list.length || (!s.prizes.length && !s.isDummy)) { prizes = list; isDummy = !!s.isDummy; }
       }
       if (s.order2 === "top") order = "top";
       if (Number.isInteger(s.people)) N = Math.min(MAX_PEOPLE, Math.max(MIN_PEOPLE, s.people));
