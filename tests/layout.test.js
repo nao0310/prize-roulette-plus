@@ -119,3 +119,21 @@ test("発表モード：全画面に入り、Escなどで全画面が解除さ�
   assert.deepEqual(t.errors, []);
   await t.close();
 });
+
+test("SPIN ボタンの長い表示（ほかのタブで抽選中・景品を登録してください など）も1行に収まる", async () => {
+  for (const [name, o] of TARGETS) {
+    const t = await h.open(o);
+    const lines = await t.page.evaluate(() => {
+      const b = document.getElementById("spinBtn"), out = {};
+      for (const x of ["ほかのタブで抽選中", "景品を登録してください", "番号が残っていません", "参加者がいません"]) {
+        b.textContent = x;
+        const lh = parseFloat(getComputedStyle(b).lineHeight) || parseFloat(getComputedStyle(b).fontSize) * 1.3;
+        out[x] = Math.round((b.clientHeight - parseFloat(getComputedStyle(b).paddingTop) - parseFloat(getComputedStyle(b).paddingBottom)) / lh);
+      }
+      return out;
+    });
+    for (const [x, n] of Object.entries(lines)) assert.equal(n, 1, `${name}：「${x}」が${n}行になった`);
+    assert.deepEqual(await h.overflowReport(t.page), [], name);
+    await t.close();
+  }
+});
