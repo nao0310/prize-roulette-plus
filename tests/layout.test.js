@@ -151,3 +151,27 @@ test("当選画面：光の放射が回っても縦のスクロールが出た�
     await t.close();
   }
 });
+
+test("受付モード：中身が画面に収まるときは縦のスクロールバーが出ない（余白の分だけスクロールしない）。番号の画面で「次の方へ」がスタッフボタンに隠れない", async () => {
+  for (const [name, o] of TARGETS) {
+    const t = await h.open({ ...o, hash: "reception", storage: { [S + "-settings"]: { eventName: "第10回 抽選会" } } });
+    await t.page.click("#kStart"); await t.page.waitForTimeout(300);
+    const measure = () => t.page.evaluate(() => {
+      const pg = document.getElementById("page-reception"), k = document.querySelector(".kiosk"), main = document.querySelector(".kiosk-main");
+      const cs = getComputedStyle(k);
+      const need = Math.max(0, Math.ceil(main.getBoundingClientRect().height + parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom) - pg.clientHeight));
+      return { doc: document.scrollingElement.scrollHeight - innerHeight, over: pg.scrollHeight - pg.clientHeight, need };
+    });
+    for (const where of ["form", "ticket"]) {
+      if (where === "ticket") { await t.page.fill("#kName", "山田 太郎"); await t.page.click("#kForm button[type=submit]"); await t.page.waitForTimeout(900); }
+      const m = await measure();
+      assert.ok(m.doc <= 1, `${name} ${where}：ページ全体が ${m.doc}px スクロールする`);
+      assert.ok(m.over <= m.need + 1, `${name} ${where}：中身より ${m.over - m.need}px 余分にスクロールできる`);
+    }
+    await t.page.locator("#page-reception").evaluate(p => { p.scrollTop = p.scrollHeight; });
+    assert.equal(await overlaps(t.page, "#kStaff", "#kNext"), false, `${name}：「次の方へ」がスタッフボタンに重なる`);
+    assert.deepEqual(await h.overflowReport(t.page), [], name);
+    assert.deepEqual(t.errors, []);
+    await t.close();
+  }
+});
