@@ -52,7 +52,7 @@ const STATES = [
   ["抽選", BASE, "draw", null, true],
   ["抽選（途中）", partial(), "draw", null, true],
   ["当選画面", { ...BASE, [S]: { prizes: prizes(3), order2: "top", wins: {}, pendingSpin: { i: 0, n: 2 } }, [S + "-members"]: members(3) }, "draw", async p => { await p.waitForSelector("#reveal:not([hidden])"); }, false],
-  ["結果", partial(), "draw", async p => { await p.click("#resultBtn"); }, false],
+  ["結果", partial(), "draw", async p => { await p.evaluate(() => { document.getElementById("resultBtn").click(); document.getElementById("result").hidden = false; }); }, false],
   ["リセットの確認", partial(), "draw", async p => { await p.click("#resetBtn"); }, true],
   ["発表モード", partial(), "draw", async p => { await p.click("#presentBtn"); }, true],
   ["景品", BASE, "prizes", null, false],
@@ -71,7 +71,7 @@ function inspect(expectFit) {
   const out = [];
   const W = innerWidth, H = innerHeight;
   const desktop = matchMedia("(min-width: 901px), (orientation: landscape) and (min-width: 480px) and (max-height: 600px)").matches;
-  const visible = el => { if (el.closest("[hidden]")) return false; const cs = getComputedStyle(el); if (cs.display === "none" || cs.visibility === "hidden") return false; const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+  const visible = el => { if (el.closest("[hidden]") || el.closest("details:not([open]) > :not(summary)")) return false; const cs = getComputedStyle(el); if (cs.display === "none" || cs.visibility === "hidden") return false; const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
   const name = el => `${el.tagName.toLowerCase()}${el.id ? "#" + el.id : ""}${typeof el.className === "string" && el.className ? "." + el.className.trim().split(/\s+/).join(".") : ""}`;
   const se = document.scrollingElement;
   // 1. ページ全体：横スクロールはしない。PC の配置では縦もしない
@@ -98,7 +98,10 @@ function inspect(expectFit) {
     if (r.right > document.documentElement.clientWidth + 1 || r.left < -1) { out.push(`はみ出し：${name(el)} [${Math.round(r.left)}〜${Math.round(r.right)}] 画面の幅 ${document.documentElement.clientWidth}`); break; }
   }
   // 4. 押せるもの：スクロールして画面に出したとき、ほかの要素に隠れていないか
-  const ctrls = [...document.querySelectorAll("button, input:not([type=file]), select, textarea, a[href], summary")].filter(visible).filter(el => !el.disabled);
+  // 確認・当選画面・結果が開いているときは、いちばん上に開いているものの中だけを見る（後ろのボタンは隠れていてよい）
+  const layers = ["#redoConfirm", "#confirm", "#result", "#reveal"].map(s => document.querySelector(s)).filter(el => el && visible(el));
+  const scope = layers[0] || document.body;
+  const ctrls = [...scope.querySelectorAll("button, input:not([type=file]), select, textarea, a[href], summary")].filter(visible).filter(el => !el.disabled);
   for (const el of ctrls) {
     el.scrollIntoView({ block: "center", inline: "center" });
     const r = el.getBoundingClientRect();

@@ -1631,7 +1631,9 @@ body.kiosk .kiosk { min-height: 100%; box-sizing: border-box; align-content: cen
     const n = total();
     // 列の数（PCは2列、スマホ横向きは1列）に合わせて行数を決める
     const cols = desktop() ? (matchMedia("(orientation: landscape) and (min-width: 480px) and (max-height: 600px)").matches ? 1 : 2) : 1;
-    listEl.style.gridTemplateRows = desktop() ? `repeat(${Math.ceil(n / cols)}, minmax(32px, 1fr))` : "";
+    // 行の高さは「中身の高さ」以上にする（長い景品名が行からはみ出して、隣の行の順位や当選番号に重ならないように）。
+    // 収まるときは一覧の高さいっぱいに均等に広げ、収まらないときは一覧の中でスクロールする
+    listEl.style.gridTemplateRows = desktop() ? `repeat(${Math.ceil(n / cols)}, minmax(min-content, 1fr))` : "";
   }
 
   // 下位から抽選している途中で参加者が増え、抽選する景品が増えたときのお知らせ（次の景品が下の順位に戻るため）
