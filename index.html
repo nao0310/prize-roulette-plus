@@ -362,6 +362,8 @@ body.tension .wheel-box { transform: scale(1.035); }
   .next-rank { font-size: 34px; }
   .spin-btn { padding: 10px 40px; }
 }
+/* 幅の狭いスマホ（iPhone SE など）：SPIN ボタンの長い表示（「景品を登録してください」など）が2行にならないよう、左右の余白を詰める */
+@media (max-width: 360px) { .spin-btn { padding-inline: 10px; } }
 /* タッチ操作の端末では「スペースキー」の説明は不要 */
 @media (pointer: coarse) { .hint { display: none; } }
 /* スマホでは当選画面の背景を濃くして、後ろの文字が透けないようにする */
