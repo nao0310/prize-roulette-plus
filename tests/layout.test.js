@@ -137,3 +137,17 @@ test("SPIN ボタンの長い表示（ほかのタブで抽選中・景品を登
     await t.close();
   }
 });
+
+test("当選画面：光の放射が回っても縦のスクロールが出たり消えたりしない（中身が収まる画面ではスクロールしない）", async () => {
+  for (const [name, o] of TARGETS) {
+    const t = await h.open({ ...o, storage: { [S]: { prizes: h.makePrizes(3), order2: "top", wins: {}, pendingSpin: { i: 0, n: 2 } }, [S + "-members"]: h.makeMembers({ 1: "A", 2: "山田 太郎", 3: "C" }) } });
+    await t.page.waitForTimeout(1500);   // 文字が飛び出す演出が終わるまで待つ
+    const s = [];
+    for (let k = 0; k < 12; k++) { s.push(await t.page.evaluate(() => { const r = document.getElementById("reveal"), inner = document.querySelector(".reveal-inner"); return { over: r.scrollHeight - r.clientHeight, need: Math.max(0, Math.ceil(inner.scrollHeight - r.clientHeight)) }; })); await t.page.waitForTimeout(250); }
+    const overs = [...new Set(s.map(x => x.over))];
+    assert.equal(overs.length, 1, `${name}：スクロールできる高さが変わった ${overs}`);
+    assert.ok(overs[0] <= s[0].need + 1, `${name}：中身より ${overs[0] - s[0].need}px 余分にスクロールできる`);
+    assert.deepEqual(await h.overflowReport(t.page), [], name);
+    await t.close();
+  }
+});
