@@ -432,7 +432,7 @@ body.has-roster .people-row { display: none; }
 .list-sub { font-size: 12px; color: var(--ink-dim); font-weight: 800; }
 .people-tip { font-size: 12px; color: var(--ink-dim); font-weight: 500; }
 
-.page-inner { max-width: 1100px; margin: 0 auto; display: grid; gap: 14px; padding-block: 4px 28px; }
+.page-inner { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; padding-block: 4px 28px; }   /* 表の幅で画面が広がらないように（表は枠の中で横スクロール） */
 .page-head { display: grid; gap: 4px; }
 .page-title { margin: 0; font-size: clamp(22px, 3vw, 30px); line-height: 1.2; }
 .page-lead { margin: 0; color: var(--ink-dim); line-height: 1.6; max-width: 70ch; }
@@ -489,7 +489,7 @@ input.text::placeholder, textarea.text::placeholder { color: #7d6a9e; }
 
 /* 名簿の表 */
 .search { margin-bottom: 10px; max-width: 320px; }
-.table-wrap { overflow-x: auto; border-radius: 12px; }
+.table-wrap { overflow-x: auto; border-radius: 12px; position: relative; }   /* 見出しの読み上げ用の文字（.sr）を枠の中に収め、ページの幅を広げないように */
 .mem-table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 560px; }
 .mem-table th { text-align: left; font-size: 12px; color: var(--ink-dim); font-weight: 800; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .mem-table td { padding: 5px 8px; border-bottom: 1px solid #36205a; vertical-align: middle; }
