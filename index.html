@@ -198,8 +198,9 @@ button.ball-sm:focus-visible { outline: 3px solid var(--gold); outline-offset: 2
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
 .reveal-inner { position: relative; display: grid; place-items: center; gap: 10px; padding-inline: 16px; margin-block: auto; }   /* 収まらないときは上から表示（上が切れないように） */
+/* 光の放射は画面に固定する（回転で大きさが変わる飾りが当選画面のスクロールの範囲に入ると、縦のバーが出たり消えたりして画面が動くため） */
 .rays {
-  position: absolute; width: min(150vw, 900px); aspect-ratio: 1; left: 50%; top: 42%;
+  position: fixed; width: min(150vw, 900px); aspect-ratio: 1; left: 50%; top: 42%;
   transform: translate(-50%, -50%);
   background: repeating-conic-gradient(var(--c) 0 6deg, transparent 6deg 18deg);
   opacity: .28; border-radius: 50%;
