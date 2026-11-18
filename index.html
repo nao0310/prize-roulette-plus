@@ -193,9 +193,11 @@ button.ball-sm:focus-visible { outline: 3px solid var(--gold); outline-offset: 2
 .reveal {
   position: fixed; inset: 0; z-index: 20; display: grid; place-items: center;
   background: rgba(10, 4, 22, .72); cursor: pointer;
+  overflow-x: hidden;   /* 光の放射（.rays）が画面より大きいので、横にずれないよう切る */
+  overflow-y: auto;     /* 画面の高さに収まらないとき（1366×768 など）は縦にスクロールしてボタンまで見られるように */
   padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
 }
-.reveal-inner { position: relative; display: grid; place-items: center; gap: 10px; padding-inline: 16px; }
+.reveal-inner { position: relative; display: grid; place-items: center; gap: 10px; padding-inline: 16px; margin-block: auto; }   /* 収まらないときは上から表示（上が切れないように） */
 .rays {
   position: absolute; width: min(150vw, 900px); aspect-ratio: 1; left: 50%; top: 42%;
   transform: translate(-50%, -50%);
@@ -271,6 +273,8 @@ body.tension .wheel-box { transform: scale(1.035); }
 .confirm .card { max-width: 360px; display: grid; gap: 14px; text-align: center; }
 .confirm p { margin: 0; font-weight: 800; font-size: 16px; line-height: 1.5; }
 .confirm .row { display: flex; gap: 10px; justify-content: center; }
+.confirm .card > .chip { justify-self: center; }
+.confirm p.hint2 { font-size: 13px; font-weight: 500; color: var(--ink-dim); }
 .danger { background: var(--red); color: #fff; border-color: var(--red); }
 
 /* ---- リザルト ---- */
@@ -358,6 +362,8 @@ body.tension .wheel-box { transform: scale(1.035); }
   .next-rank { font-size: 34px; }
   .spin-btn { padding: 10px 40px; }
 }
+/* 幅の狭いスマホ（iPhone SE など）：SPIN ボタンの長い表示（「景品を登録してください」など）が2行にならないよう、左右の余白を詰める */
+@media (max-width: 360px) { .spin-btn { padding-inline: 10px; } }
 /* タッチ操作の端末では「スペースキー」の説明は不要 */
 @media (pointer: coarse) { .hint { display: none; } }
 /* スマホでは当選画面の背景を濃くして、後ろの文字が透けないようにする */
@@ -382,7 +388,7 @@ body.tension .wheel-box { transform: scale(1.035); }
   .people-row input { font-size: 15px; width: 72px; }
   .people-row, .list-head { font-size: 12px; }
   .prize-list { grid-template-columns: minmax(0, 1fr); }
-  #loadMsg, #absentMsg { display: none !important; }
+  #loadMsg, #absentMsg, #joinMsg { display: none !important; }
   .reveal-inner {
     grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "ball rank" "ball text";
     column-gap: 24px; row-gap: 6px; align-items: center; max-width: 94vw;
@@ -432,7 +438,7 @@ body.has-roster .people-row { display: none; }
 .list-sub { font-size: 12px; color: var(--ink-dim); font-weight: 800; }
 .people-tip { font-size: 12px; color: var(--ink-dim); font-weight: 500; }
 
-.page-inner { max-width: 1100px; margin: 0 auto; display: grid; gap: 14px; padding-block: 4px 28px; }
+.page-inner { max-width: 1100px; margin: 0 auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; padding-block: 4px 28px; }   /* 表の幅で画面が広がらないように（表は枠の中で横スクロール） */
 .page-head { display: grid; gap: 4px; }
 .page-title { margin: 0; font-size: clamp(22px, 3vw, 30px); line-height: 1.2; }
 .page-lead { margin: 0; color: var(--ink-dim); line-height: 1.6; max-width: 70ch; }
@@ -489,7 +495,7 @@ input.text::placeholder, textarea.text::placeholder { color: #7d6a9e; }
 
 /* 名簿の表 */
 .search { margin-bottom: 10px; max-width: 320px; }
-.table-wrap { overflow-x: auto; border-radius: 12px; }
+.table-wrap { overflow-x: auto; border-radius: 12px; position: relative; }   /* 見出しの読み上げ用の文字（.sr）を枠の中に収め、ページの幅を広げないように */
 .mem-table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 560px; }
 .mem-table th { text-align: left; font-size: 12px; color: var(--ink-dim); font-weight: 800; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
 .mem-table td { padding: 5px 8px; border-bottom: 1px solid #36205a; vertical-align: middle; }
@@ -633,6 +639,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
           <span class="people-note" id="peopleNote"></span>
         </div>
         <p class="absent-msg" id="absentMsg" hidden></p>
+        <p class="roster-msg" id="joinMsg" role="status" hidden></p>
         <ol class="prize-list" id="prizeList"></ol>
       </div>
     </aside>
@@ -877,6 +884,8 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
 <div class="confirm" id="confirm" hidden>
   <div class="card">
     <p>当選番号をすべて消して、最初からやり直しますか？<br>（景品の一覧はそのまま残ります）</p>
+    <p class="hint2" id="resetHint" hidden>抽選結果が必要なら、先にCSVで書き出してください。</p>
+    <button class="chip" id="resetExport" type="button" hidden>抽選結果をCSVで書き出す</button>
     <div class="row">
       <button class="chip" id="cancelReset" type="button">やめる</button>
       <button class="chip danger" id="doReset" type="button">リセットする</button>
@@ -942,25 +951,56 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   let drawOrder = [];             // 当選が決まった景品の添字（決まった順）
   let absent = [];                // 当選者がいなくて外した番号
   let legacyDrawn = null;
+  let storedSpin = null;           // 保存データにあった「回し始めた時点で決まっていた当選」{ i: 景品の添字, n: 番号 }
+  let spinSaved = null, otherSpin = null;   // このタブで回している当選 / ほかのタブで回している当選（上書きしないよう持っておく）
+  // 回しているタブにだけ印を付けておく（再読み込みしたときに「このタブが回していた」と分かるように。ほかのタブには影響しない）
+  const SPIN_KEY = STORE + "-spin";
+  // 回し始めてからこの時間がたっても止まった記録がなければ、回していたタブは閉じられたとみなす（回転は長くても15秒ほど）
+  const SPIN_STALE_MS = 30000;
+  const spinFresh = sp => { const age = Date.now() - (sp.at || 0); return age >= -5000 && age < SPIN_STALE_MS; };
+  // ほかのタブでルーレットが回っている途中か（その間は、このタブでも「抽選の途中」と同じく変更できないようにする）
+  const othersSpinning = () => !!otherSpin && spinFresh(otherSpin);
   // 名簿（任意）：番号 → 名前。抽選には使わず、当選番号に名前を添えて表示するだけ。
   // この端末のブラウザの中だけに置き、どこにも送信しない
   // members：番号 → { name: 名前またはニックネーム, kind: "name" | "nick" | "none", at: 受付時刻 }
   // roster ：番号 → 表示名（抽選の対象になる番号の一覧として使う。名前なしの人は ""）
   let members = {}, roster = {}, rosterFile = "";
-  let settings = { eventName: "", numbering: "seq", start: 1, capacity: 100, open: true, showNames: true, resetSec: 10 };
-  try {
-    const m = JSON.parse(localStorage.getItem(STORE + "-members") || "null");
-    if (m && m.members && typeof m.members === "object") {
-      for (const [k, v] of Object.entries(m.members)) {
-        const n = +k;
-        if (Number.isInteger(n) && n >= 1 && n <= MAX_PEOPLE && v && typeof v === "object")
-          members[n] = { name: String(v.name || "").slice(0, 40), kind: ["name", "nick", "none"].includes(v.kind) ? v.kind : "name", at: Number(v.at) || 0 };
+  let settings = {};
+  // 保存データ（バックアップから戻したもの・別のバージョンのものを含む）は、型と範囲を確かめてから使う
+  // （ほかのタブで保存されたときにも読み直すので、関数にしておく）
+  function loadMembers() {
+    members = {}; rosterFile = "";
+    try {
+      const m = JSON.parse(localStorage.getItem(STORE + "-members") || "null");
+      if (m && m.members && typeof m.members === "object") {
+        for (const [k, v] of Object.entries(m.members)) {
+          const n = +k;
+          if (Number.isInteger(n) && n >= 1 && n <= MAX_PEOPLE && v && typeof v === "object")
+            members[n] = { name: typeof v.name === "string" || typeof v.name === "number" ? String(v.name).slice(0, 40) : "", kind: ["name", "nick", "none"].includes(v.kind) ? v.kind : "name", at: Number(v.at) || 0 };
+        }
+        rosterFile = typeof m.file === "string" ? m.file : "";
       }
-      rosterFile = String(m.file || "");
-    }
-    const st = JSON.parse(localStorage.getItem(STORE + "-settings") || "null");
-    if (st && typeof st === "object") settings = Object.assign(settings, st);
-  } catch (e) {}
+    } catch (e) {}
+  }
+  loadMembers();
+  const SETTINGS_DEFAULT = { eventName: "", numbering: "seq", start: 1, capacity: 100, open: true, showNames: true, resetSec: 10 };
+  function loadSettings() {
+    settings = { ...SETTINGS_DEFAULT };
+    try {
+      const st = JSON.parse(localStorage.getItem(STORE + "-settings") || "null");
+      if (st && typeof st === "object" && !Array.isArray(st)) {
+        if (typeof st.eventName === "string") settings.eventName = st.eventName.slice(0, 40);
+        if (st.numbering === "seq" || st.numbering === "random") settings.numbering = st.numbering;
+        const a = parseInt(st.start, 10), c = parseInt(st.capacity, 10);
+        if (a >= 1 && a <= MAX_PEOPLE) settings.start = a;
+        if (c >= 1) settings.capacity = Math.min(MAX_PEOPLE - settings.start + 1, c);
+        if (typeof st.open === "boolean") settings.open = st.open;
+        if (typeof st.showNames === "boolean") settings.showNames = st.showNames;
+        if ([5, 10, 15, 30].includes(+st.resetSec)) settings.resetSec = +st.resetSec;
+      }
+    } catch (e) {}
+  }
+  loadSettings();
   function deriveRoster() {
     roster = {};
     for (const [k, v] of Object.entries(members)) roster[k] = v.kind === "none" ? "" : v.name;
@@ -970,23 +1010,55 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   const hasRoster = () => Object.keys(roster).length > 0;
   // 名簿の人数（＝名簿にある最大の番号）。番号が1から順に並んでいれば名簿の人数と同じになる
   const rosterPeople = () => Math.min(MAX_PEOPLE, Math.max(MIN_PEOPLE, 0, ...Object.keys(roster).map(Number)));
-  try {
-    const s = JSON.parse(localStorage.getItem(STORE) || "null");
-    if (s) {
-      if (Array.isArray(s.prizes) && s.prizes.length) { prizes = s.prizes; isDummy = !!s.isDummy; }
-      if (s.order2 === "top") order = "top";
-      if (Number.isInteger(s.people)) N = Math.min(MAX_PEOPLE, Math.max(MIN_PEOPLE, s.people));
-      if (s.wins && typeof s.wins === "object") {
-        for (const [k, v] of Object.entries(s.wins)) if (v >= 1 && v <= MAX_PEOPLE) wins[+k] = v;
-        if (Array.isArray(s.drawOrder)) drawOrder = s.drawOrder.filter(i => wins[i] != null);
-        if (Array.isArray(s.absent)) absent = s.absent.filter(n => n >= 1 && n <= MAX_PEOPLE);
-      } else if (Array.isArray(s.drawn)) legacyDrawn = s.drawn.filter(n => n >= 1 && n <= N);
-    }
-  } catch (e) {}
+  function loadState() {
+    prizes = DUMMY.map(p => ({ ...p })); isDummy = true; order = "bottom"; N = 100;
+    wins = {}; drawOrder = []; absent = []; legacyDrawn = null; storedSpin = null;
+    try {
+      const s = JSON.parse(localStorage.getItem(STORE) || "null");
+      if (s && typeof s === "object") {
+        const isNum = n => Number.isInteger(n) && n >= 1 && n <= MAX_PEOPLE;
+        // 景品：景品名が文字（または数字）のものだけ。順位は並び順に振り直す。old→new は当選番号の付け替え用
+        const remap = new Map();
+        if (Array.isArray(s.prizes)) {
+          const list = [];
+          s.prizes.slice(0, MAX_PEOPLE).forEach((p, i) => {
+            const nm = p && typeof p === "object" ? p.name : p;
+            const name = typeof nm === "string" || typeof nm === "number" ? String(nm).trim().replace(/\s+/g, " ").slice(0, 60) : "";
+            if (!name) return;
+            remap.set(i, list.length);
+            list.push({ rank: list.length + 1, name });
+          });
+          // 「すべて消す」で空にした一覧（空の配列）も、そのまま空として戻す
+          if (list.length || (!s.prizes.length && !s.isDummy)) { prizes = list; isDummy = !!s.isDummy; }
+        }
+        if (s.order2 === "top") order = "top";
+        if (Number.isInteger(s.people)) N = Math.min(MAX_PEOPLE, Math.max(MIN_PEOPLE, s.people));
+        if (s.wins && typeof s.wins === "object" && remap.size) {
+          const used = new Set();
+          for (const [k, v] of Object.entries(s.wins)) {
+            const i = remap.get(Number(k)), n = Number(v);
+            if (i == null || !isNum(n) || used.has(n)) continue;
+            wins[i] = n; used.add(n);
+          }
+          if (Array.isArray(s.drawOrder)) drawOrder = [...new Set(s.drawOrder.map(i => remap.get(Number(i))))].filter(i => i != null && wins[i] != null);
+          for (const i of Object.keys(wins).map(Number)) if (!drawOrder.includes(i)) drawOrder.push(i);   // 順番が分からない当選も一覧に残す
+          if (Array.isArray(s.absent)) absent = [...new Set(s.absent.map(Number))].filter(n => isNum(n) && !used.has(n));
+          // 回し始めた時点で決まっていた当選（回っている途中で再読み込みされたとき用）
+          const ps = s.pendingSpin;
+          if (ps && typeof ps === "object") {
+            const i = remap.get(Number(ps.i)), n = Number(ps.n);
+            if (i != null && wins[i] == null && isNum(n) && !used.has(n) && !absent.includes(n)) storedSpin = { i, n, at: Number(ps.at) || 0 };
+          }
+        } else if (Array.isArray(s.drawn)) legacyDrawn = [...new Set(s.drawn.map(Number))].filter(n => isNum(n) && n <= N);
+      }
+    } catch (e) {}
+  }
+  loadState();
   // 抽選の対象になる番号：名簿があれば名簿にある番号だけ、なければ 1〜参加人数 すべて
   const inPool = n => hasRoster() ? Object.prototype.hasOwnProperty.call(roster, n) : (n >= 1 && n <= N);
   const poolSize = () => hasRoster() ? Object.keys(roster).length : N;
-  const total = () => Math.min(prizes.length, poolSize());
+  // 抽選する景品の数。途中で名簿の人が減っても、当選が決まった景品は外さない
+  const total = () => { let t = poolSize(); for (const k in wins) t = Math.max(t, +k + 1); return Math.min(prizes.length, t); };
   // 抽選順で j 番目に回す景品の添字
   const seqIndex = j => order === "top" ? j : total() - 1 - j;
   if (legacyDrawn) legacyDrawn.slice(0, total()).forEach((num, k) => { const i = seqIndex(k); wins[i] = num; drawOrder.push(i); });
@@ -998,6 +1070,9 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   }
   const nextPrize = () => { const i = nextIdx(); return i >= 0 ? prizes[i] : null; };
   const busy = () => drawnCount() > 0 || absent.length > 0;
+  // 保存データにあった「回し始めた時点の当選」が今の状態で使えるか：抽選順で次の景品で、番号が抽選の対象に入っていて、まだ出ていないこと
+  const validSpin = sp => !!sp && prizes[sp.i] != null && wins[sp.i] == null && nextIdx() === sp.i &&
+    inPool(sp.n) && !Object.values(wins).includes(sp.n) && !absent.includes(sp.n);
   let spinIdx = -1, revealIdx = -1;
 
   let wheelNums = [];
@@ -1026,7 +1101,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     // 同じ色が固まらないよう、見た目用に並びを混ぜる（抽選結果には影響しない）
     for (let i = wheelNums.length - 1; i > 0; i--) { const j = Math.floor(rand() * (i + 1)); [wheelNums[i], wheelNums[j]] = [wheelNums[j], wheelNums[i]]; }
   }
-  function save() { try { localStorage.setItem(STORE, JSON.stringify({ prizes, isDummy, order2: order, wins, drawOrder, absent, people: N })); } catch (e) {} }
+  function save() { try { localStorage.setItem(STORE, JSON.stringify({ prizes, isDummy, order2: order, wins, drawOrder, absent, people: N, pendingSpin: spinSaved || otherSpin })); } catch (e) {} }
 
   // ---------- サウンド（パチンコ風） ----------
   // 実機の「キュイン音」や大当たり音を参考に、高音を抑えて中低音を厚くし、
@@ -1294,15 +1369,20 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
      4. 一拍   : 止まってから0.65秒の沈黙のあと発表
   */
   function spin() {
-    if (spinning || beatTimer || !confirmEl.hidden || !resultEl.hidden || !redoEl.hidden) return;
+    if (spinning || beatTimer || othersSpinning() || !confirmEl.hidden || !resultEl.hidden || !redoEl.hidden) return;
     if (pending !== null) closeReveal();
     if (wheelDirty) { wheelDirty = false; rebuildWheel(); }
     const np = nextPrize();
     if (!np || !wheelNums.length) return;
     spinIdx = nextIdx();
+    joinNote = ""; document.getElementById("joinMsg").hidden = true;
     audio();
     const n = wheelNums.length, seg = TAU / n;
     winIdx = Math.floor(rand() * n);
+    // 当選番号は回し始めた時点で決まっているので、ここで保存しておく（回っている途中で再読み込みしても引き直しにならないように）
+    spinSaved = { i: spinIdx, n: wheelNums[winIdx], at: Date.now() };
+    try { sessionStorage.setItem(SPIN_KEY, "1"); } catch (e) {}
+    save();
     const r0 = rotation;
     const top3 = np.rank <= 3;
     const fake = false;   // 行き過ぎて戻ってくる演出は使わない（常に前に進んで止まる）
@@ -1360,11 +1440,16 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     beatTimer = setTimeout(() => {
       beatTimer = null;
       document.body.classList.remove("is-spinning");
-      wins[spinIdx] = num;
-      drawOrder.push(spinIdx);
-      save(); renderPlus();
+      // 回っている間にほかのタブで変わった名簿などを、先に読み直してから当選を書き込む（古い内容で相手の変更を上書きしないように）
+      if (syncWaiting) applySync();
+      spinSaved = null;
+      try { sessionStorage.removeItem(SPIN_KEY); } catch (e) {}
+      if (wins[spinIdx] == null && prizes[spinIdx] && !Object.values(wins).includes(num) && !absent.includes(num)) { wins[spinIdx] = num; drawOrder.push(spinIdx); }
+      save();
+      renderPlus();
       renderSide();
-      showReveal(num);
+      if (wins[spinIdx] !== num) { closeReveal(); return; }   // 読み直した内容では書き込めないとき（通常は起きない）
+      showReveal(num, spinIdx);
     }, reduced ? 0 : 650);
   }
 
@@ -1372,12 +1457,12 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   const reveal = document.getElementById("reveal");
   const flash = document.getElementById("flash");
   function replay(el) { el.style.animation = "none"; void el.offsetWidth; el.style.animation = ""; }
-  function showReveal(num) {
-    revealIdx = drawOrder[drawOrder.length - 1];
+  function showReveal(num, idx = drawOrder[drawOrder.length - 1]) {
+    revealIdx = idx;
     const prize = prizes[revealIdx];
     reveal.style.setProperty("--c", colorOf(num));
     const rankEl = document.getElementById("revealRank");
-    rankEl.innerHTML = `${prize.rank}<small>位 当選！</small>`;
+    rankEl.innerHTML = `${esc(prize.rank)}<small>位 当選！</small>`;
     const bigNum = document.getElementById("bigNum");
     bigNum.textContent = num;
     bigNum.classList.toggle("three", num >= 100);
@@ -1388,8 +1473,8 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     whoEl.hidden = !who;
     whoEl.textContent = who;
     if (who) { const sm = document.createElement("small"); sm.textContent = "さん"; whoEl.appendChild(sm); replay(whoEl); }
-    const done = !nextPrize();
-    document.getElementById("revealCount").textContent = done ? "すべての景品の抽選が終わりました！" : `${drawnCount()} / ${total()} 本目`;
+    revealNum = num; revealNote = "";
+    revealTexts();
 
     // ときどき出る特別演出
     let tag = "";
@@ -1402,8 +1487,6 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     [rankEl, prizeEl, tagEl, document.getElementById("bigBall")].forEach(replay);
 
     const nb = document.getElementById("nextBtn");
-    const np = nextPrize();
-    nb.textContent = np ? `次の ${np.rank}位 を回す` : "結果発表へ";
     reveal.hidden = false;
     if (!reduced) {
       flash.classList.remove("go"); void flash.offsetWidth; flash.classList.add("go");
@@ -1414,6 +1497,13 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     fanfare(prize.rank <= 3);
     updateSpinBtn();
     nb.focus({ preventScroll: true });
+  }
+  // 当選画面の「○ / ○ 本目」と「次の○位を回す」（ほかのタブで状態が変わったときも、これで最新にする）
+  let revealNum = null, revealNote = "";
+  function revealTexts() {
+    const np = nextPrize();
+    document.getElementById("revealCount").textContent = revealNote || (!np ? "すべての景品の抽選が終わりました！" : `${drawnCount()} / ${total()} 本目`);
+    document.getElementById("nextBtn").textContent = np ? `次の ${np.rank}位 を回す` : "結果発表へ";
   }
   function closeReveal() {
     reveal.hidden = true;
@@ -1529,10 +1619,21 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     listEl.style.gridTemplateRows = desktop() ? `repeat(${Math.ceil(n / cols)}, minmax(32px, 1fr))` : "";
   }
 
+  // 下位から抽選している途中で参加者が増え、抽選する景品が増えたときのお知らせ（次の景品が下の順位に戻るため）
+  let lastTotal = -1, joinNote = "";
+  function noteJoin() {
+    const t = total();
+    if (!busy()) joinNote = "";
+    else if (order === "bottom" && lastTotal >= 0 && t > lastTotal && nextPrize()) joinNote = `参加者が増えたので、${nextPrize().rank}位も抽選します（次は${nextPrize().rank}位）`;
+    lastTotal = t;
+    const el = document.getElementById("joinMsg");
+    el.hidden = !joinNote; el.textContent = joinNote;
+  }
   function renderSide() {
+    noteJoin();
     const np = nextPrize();
     document.getElementById("nextTitle").textContent = np ? "次の景品" : "抽選終了";
-    document.getElementById("nextRank").innerHTML = np ? `${np.rank}<small>位</small>` : "END";
+    document.getElementById("nextRank").innerHTML = np ? `${esc(np.rank)}<small>位</small>` : "END";
     document.getElementById("nextName").textContent = np ? np.name : prizes.length ? "すべての景品の当選番号が決まりました" : "「景品」タブで景品を登録してください";
     fitNextName();
     layoutList();
@@ -1570,6 +1671,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
 
   function updateSpinBtn() {
     if (spinning || beatTimer) return;
+    if (othersSpinning()) { spinBtn.disabled = true; spinBtn.textContent = "ほかのタブで抽選中"; return; }
     const np = nextPrize();
     spinBtn.disabled = !np || !wheelNums.length;
     spinBtn.textContent = !prizes.length ? "景品を登録してください" : !np ? "抽選終了" : wheelNums.length ? `${np.rank}位を抽選！`
@@ -1584,7 +1686,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   const orderBtn = document.getElementById("orderBtn");
   function setMsg(text, isError) { loadMsg.textContent = text; loadMsg.classList.toggle("error", !!isError); }
   function setPrizeTools() {
-    const locked = busy() || spinning || beatTimer;
+    const locked = busy() || spinning || beatTimer || othersSpinning();
     loadBtn.disabled = locked; dummyBtn.disabled = locked || isDummy; orderBtn.disabled = locked;
     peopleInput.disabled = locked || hasRoster();
     peopleInput.title = hasRoster() ? "名簿を読み込んでいる間は、参加人数を名簿に合わせます（変えるときは「名簿を外す」）"
@@ -1604,7 +1706,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
       const rc = row.findIndex(v => /^(順位|順番|位|ランク|rank|no\.?|#)$/i.test(v));
       const nc = row.findIndex(v => v.length <= 8 && /^(景品|賞品|商品|品名|prize|name)/i.test(v));
       if (rc >= 0 || nc >= 0) {
-        if (rc >= 0) rankCol = rc;
+        rankCol = rc;   // 見出しに順位の列がなければ順位は読まない（行の順のまま。景品名の中の数字を順位にしない）
         nameCol = nc >= 0 ? nc : (rankCol === 0 ? 1 : 0);
         start = r + 1;
         break;
@@ -1635,7 +1737,9 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     } else {
       wb = XLSX.read(buf, { type: "array" });
     }
-    return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, blankrows: false, raw: false });
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, blankrows: false, raw: false });
+    // 書き出しで数式対策として付けた先頭の ' を外す（= + - @ などの前に付いたものだけ）。画面では文字として扱うので安全
+    return rows.map(r => (r || []).map(v => typeof v === "string" ? v.replace(/^'(?=[=+\-@\t\r])/, "") : v));
   }
 
   // 名簿の読み取り：「番号」「名前」の見出しがあればその列、なければA列=番号・B列=名前
@@ -1674,19 +1778,8 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   async function loadFile(file) {
     if (typeof XLSX === "undefined") { setMsg("Excelを読む部品を読み込めませんでした。ページを再読み込みしてから、もう一度試してください。", true); return; }
     try {
-      const buf = await file.arrayBuffer();
-      let wb;
-      if (/\.csv$/i.test(file.name)) {
-        // CSVは文字コードを判定してから読む（UTF-8 → だめならExcelで保存したShift_JIS）
-        let text;
-        try { text = new TextDecoder("utf-8", { fatal: true }).decode(buf); }
-        catch (e) { text = new TextDecoder("shift_jis").decode(buf); }
-        wb = XLSX.read(text.replace(/^\uFEFF/, ""), { type: "string" });
-      } else {
-        wb = XLSX.read(buf, { type: "array" });
-      }
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, blankrows: false });
-      const list = parseRows(rows);
+      // 名簿と同じく、セルを文字のまま読む（「3/4」が日付の数値に、「0012」が 12 に変わらないように）
+      const list = parseRows(await readRows(file));
       if (!list.length) { setMsg("景品が見つかりませんでした。A列に順位、B列に景品名を入れたファイルを選んでください。", true); return; }
       prizes = list.map((p, i) => ({ rank: i + 1, name: p.name })); isDummy = false; wins = {}; drawOrder = []; absent = [];
       save(); rebuildWheel(); renderSide(); renderPlus();
@@ -1733,7 +1826,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     save();
   }
   async function loadRoster(file) {
-    if (spinning || beatTimer) { renderRoster("ルーレットが回っている間は名簿を読み込めません。止まってから読み込んでください。", true); return; }
+    if (spinning || beatTimer || othersSpinning()) { renderRoster("ルーレットが回っている間は名簿を読み込めません。止まってから読み込んでください。", true); return; }
     if (typeof XLSX === "undefined") { renderRoster("名簿を読む部品を読み込めませんでした。ページを再読み込みしてください。", true); return; }
     try {
       const { names, count, dup } = parseRoster(await readRows(file));
@@ -1749,7 +1842,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   document.getElementById("rosterBtn").addEventListener("click", () => rosterInput.click());
   rosterInput.addEventListener("change", () => { const f = rosterInput.files[0]; if (f) loadRoster(f); rosterInput.value = ""; });
   rosterClear.addEventListener("click", () => {
-    if (spinning || beatTimer) return;
+    if (spinning || beatTimer || othersSpinning()) return;
     if (busy()) { renderRoster("抽選の途中は名簿を全部消すことはできません。リセットしてから消してください。", true); return; }
     if (!rosterClear.classList.contains("armed")) {   // 誤操作防止：2回押しで実行
       rosterClear.classList.add("armed"); rosterClear.textContent = "本当に全員消す？（もう一度押す）";
@@ -1777,7 +1870,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     document.getElementById("peopleNote").textContent = notes.join("／");
   }
   function applyPeople() {
-    if (busy() || spinning || beatTimer) { renderPeople(); return; }
+    if (busy() || spinning || beatTimer || othersSpinning()) { renderPeople(); return; }
     let v = parseInt(peopleInput.value, 10);
     if (isNaN(v)) v = N;
     v = Math.min(MAX_PEOPLE, Math.max(MIN_PEOPLE, v));
@@ -1801,24 +1894,33 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     e.preventDefault();
     const f = e.dataTransfer.files[0];
     if (!f || view !== "prizes") return;
-    if (busy() || spinning || beatTimer) { setMsg("抽選の途中は景品を変更できません。リセットしてから読み込んでください。", true); return; }
+    if (isLocked()) { setMsg("抽選の途中は景品を変更できません。リセットしてから読み込んでください。", true); return; }
     loadFile(f);
   });
 
   // ---------- リセット・音 ----------
   const confirmEl = document.getElementById("confirm");
-  document.getElementById("resetBtn").addEventListener("click", () => { if (!spinning && !beatTimer) confirmEl.hidden = false; });
+  document.getElementById("resetBtn").addEventListener("click", () => {
+    if (spinning || beatTimer || othersSpinning()) return;
+    // 当選があるときは、リセットの前に結果を書き出せるよう案内する
+    const has = drawnCount() > 0 || absent.length > 0;
+    const hint = document.getElementById("resetHint");
+    hint.hidden = !has; hint.textContent = "抽選結果が必要なら、先にCSVで書き出してください。";
+    document.getElementById("resetExport").hidden = !has;
+    confirmEl.hidden = false;
+  });
   document.getElementById("cancelReset").addEventListener("click", () => { confirmEl.hidden = true; });
   document.getElementById("doReset").addEventListener("click", () => {
+    if (othersSpinning()) { confirmEl.hidden = true; return; }
     confirmEl.hidden = true; reveal.hidden = true; resultEl.hidden = true; pending = null; winIdx = -1;
-    wins = {}; drawOrder = []; absent = []; save(); syncPeopleToRoster(); wheelDirty = false; rebuildWheel(); renderSide(); renderPlus();
+    wins = {}; drawOrder = []; absent = []; otherSpin = null; save(); syncPeopleToRoster(); wheelDirty = false; rebuildWheel(); renderSide(); renderPlus();
   });
 
   // ---------- 回し直し（当選者がいないとき） ----------
   const redoEl = document.getElementById("redoConfirm");
   let redoIdx = -1;
   function askRedo(idx) {
-    if (spinning || beatTimer || wins[idx] == null) return;
+    if (spinning || beatTimer || othersSpinning() || wins[idx] == null) return;
     redoIdx = idx;
     const p = prizes[idx];
     document.getElementById("redoText").textContent =
@@ -1829,7 +1931,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   function doRedo() {
     const idx = redoIdx, num = wins[idx];
     redoEl.hidden = true;
-    if (num == null) return;
+    if (num == null || othersSpinning()) return;
     if (!reveal.hidden || pending !== null) closeReveal();
     resultEl.hidden = true;
     delete wins[idx];
@@ -1853,6 +1955,13 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   // ---------- 操作 ----------
   spinBtn.addEventListener("click", spin);
   canvas.addEventListener("click", spin);
+  // 日本語入力の変換を確定する Enter では、受付の送信や入力欄の確定をしない
+  // （Safari などは、変換を確定する Enter でもフォームを送信することがあるため。変換中は isComposing か keyCode 229 になる）
+  document.addEventListener("keydown", e => {
+    if (!(e.isComposing || e.keyCode === 229) || !e.target.matches || !e.target.matches("input")) return;
+    e.stopPropagation();
+    if (e.key === "Enter") e.preventDefault();   // 変換中のほかのキー（Process）は日本語入力を妨げないよう止めない
+  }, true);
   document.addEventListener("keydown", e => {
     if ((e.code === "Space" || e.code === "Enter") && view === "draw" && !e.target.closest("button, input, textarea, select, a")) { e.preventDefault(); spin(); }
     if (e.code === "Escape") { if (!redoEl.hidden) redoEl.hidden = true; else if (!confirmEl.hidden) confirmEl.hidden = true; else if (!resultEl.hidden) resultEl.hidden = true; else if (!reveal.hidden) closeReveal(); }
@@ -1910,18 +2019,18 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   const fmtTime = t => { if (!t) return ""; const d = new Date(t); return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
   const fmtFull = t => { if (!t) return ""; const d = new Date(t); return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
   const today = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
-  const isLocked = () => busy() || spinning || !!beatTimer;
+  const isLocked = () => busy() || spinning || !!beatTimer || othersSpinning();
 
   // 誤操作防止：1回目で「本当に？」に変わり、数秒以内にもう一度押したときだけ実行する
   function armed(btn, label, fn) {
     if (!btn.classList.contains("armed")) {
-      const orig = btn.textContent;
+      btn._armOrig = btn.textContent;
       btn.classList.add("armed"); btn.textContent = label;
       clearTimeout(btn._armT);
-      btn._armT = setTimeout(() => { btn.classList.remove("armed"); btn.textContent = orig; }, 3500);
+      btn._armT = setTimeout(() => { btn.classList.remove("armed"); btn.textContent = btn._armOrig; }, 3500);
       return;
     }
-    clearTimeout(btn._armT); btn.classList.remove("armed");
+    clearTimeout(btn._armT); btn.classList.remove("armed"); btn.textContent = btn._armOrig;   // 実行したら表示を元に戻す
     fn();
   }
 
@@ -2083,6 +2192,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   $("memExport").addEventListener("click", () => { download(`${fileBase()}_名簿_${today()}.csv`, membersCSV()); renderRoster("名簿をCSVで書き出しました。名前が入っているので、扱いに注意してください"); });
   $("expPrizes").addEventListener("click", () => { download(`${fileBase()}_景品_${today()}.csv`, prizesCSV()); $("expMsg").textContent = "景品と当選番号を書き出しました"; });
   $("expMembers").addEventListener("click", () => { download(`${fileBase()}_名簿_${today()}.csv`, membersCSV()); $("expMsg").textContent = "名簿を書き出しました"; });
+  $("resetExport").addEventListener("click", () => { download(`${fileBase()}_抽選結果_${today()}.csv`, resultsCSV()); $("resetHint").textContent = "抽選結果を書き出しました。"; });
   $("expResults").addEventListener("click", () => { download(`${fileBase()}_抽選結果_${today()}.csv`, resultsCSV()); $("expMsg").textContent = drawOrder.length ? "抽選結果を書き出しました" : "まだ抽選していないので、見出しだけのファイルになりました"; });
 
   // ======================================================================
@@ -2135,6 +2245,8 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     used.forEach(n => { if (n >= a && n <= b && n > max) max = n; });
     return free.find(n => n > max) ?? free[0];
   }
+  // 名簿なし（1〜参加人数）で抽選している途中は、名簿に人を足さない（足すと抽選の対象が名簿の人だけに切り替わるため）
+  const numberDrawing = () => !hasRoster() && isLocked();
   function addMember(kind, name, num) {
     members[num] = { name: kind === "none" ? "" : name, kind, at: Date.now() };
     membersChanged();
@@ -2163,7 +2275,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
         `<td><input class="text" type="text" maxlength="20" data-n="${n}" value="${esc(memberLabel(m))}" ${m.kind === "none" ? 'disabled placeholder="（名前なし）"' : 'placeholder="名前を入力"'} aria-label="${n}番の名前"></td>` +
         `<td><select class="text" data-n="${n}" aria-label="${n}番の種別">${["name", "nick", "none"].map(k => `<option value="${k}"${m.kind === k ? " selected" : ""}>${KIND_LABEL[k]}</option>`).join("")}</select></td>` +
         `<td class="time">${esc(fmtTime(m.at)) || "—"}</td>` +
-        `<td>${wp ? `<span class="won">${wp.rank}位</span>` : gone.has(n) ? '<span class="gone">外した番号</span>' : ""}</td>` +
+        `<td>${wp ? `<span class="won">${esc(wp.rank)}位</span>` : gone.has(n) ? '<span class="gone">外した番号</span>' : ""}</td>` +
         `<td><button type="button" class="chip mini danger-text" data-del="${n}"${wp ? ' disabled title="当選済みの番号は削除できません。当選者がいない場合は「回し直し」を使ってください"' : ""}>削除</button></td>`;
       body.appendChild(tr);
     }
@@ -2188,8 +2300,16 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   $("memBody").addEventListener("click", e => {
     const b = e.target.closest("button[data-del]"); if (!b || b.disabled) return;
     const n = +b.dataset.del;
+    if (othersSpinning()) { renderRoster("ルーレットが回っている間は削除できません。止まってから操作してください。", true); return; }
+    // 抽選の途中で、景品が人数と同じか多いときは消さない（番号が足りなくなり、最後の景品（1位など）を抽選できなくなるため）
+    // 当選者なしで外した番号は抽選に使えないので、人数から引いて数える
+    const usable = poolSize() - absent.filter(a => Object.prototype.hasOwnProperty.call(roster, a)).length;
+    if (busy() && !absent.includes(n) && prizes.length >= usable) {
+      renderRoster("抽選の途中は削除できません（景品の数に対して参加者が足りなくなるため）。当選者がいない場合は「回し直し」を使ってください", true);
+      return;
+    }
     armed(b, "消す？", () => {
-      if (Object.values(wins).includes(n)) return;
+      if (Object.values(wins).includes(n) || othersSpinning()) return;
       delete members[n];
       membersChanged();
       renderRoster(`${n}番を名簿から削除しました`);
@@ -2204,6 +2324,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     const kind = $("memAddKind").value, name = $("memAddName").value.trim().replace(/\s+/g, " ").slice(0, 20);
     const msg = (t, err) => { $("memAddMsg").textContent = t; $("memAddMsg").classList.toggle("error", !!err); };
     if (kind !== "none" && !name) { msg("名前（またはニックネーム）を入力してください。入力しない場合は「入力しない」を選んでください", true); return; }
+    if (numberDrawing()) { msg(`参加人数（1〜${N}番）で抽選している途中なので、名簿に追加できません。名簿を使うときは「抽選」画面でリセットしてから追加してください`, true); return; }
     let num;
     if ($("memAddNum").value.trim()) {
       num = parseInt($("memAddNum").value, 10);
@@ -2222,7 +2343,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   // ======================================================================
   // 受付（来場者が名前を入れて番号をもらう画面）
   // ======================================================================
-  let kTimer = null, kLeft = 0, kPending = null;
+  let kTimer = null, kLeft = 0, kPending = null, kShownAt = 0;
   const kKind = () => (document.querySelector('input[name="kKind"]:checked') || { value: "name" }).value;
   function kShow(which) { ["kForm", "kDup", "kTicket", "kClosed"].forEach(id => { $(id).hidden = id !== which; }); }
   function kErr(t) { $("kErr").textContent = t; $("kErr").hidden = !t; }
@@ -2244,10 +2365,13 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   document.querySelectorAll('input[name="kKind"]').forEach(r => r.addEventListener("change", () => { kKindChanged(); if (kKind() !== "none") $("kName").focus(); }));
   function kSubmit(force) {
     if (!settings.open) { kShow("kClosed"); return; }
+    if (numberDrawing()) { kErr("抽選中のため、ここでは受付できません。スタッフにお声がけください。"); return; }
     const kind = kKind(), name = $("kName").value.trim().replace(/\s+/g, " ").slice(0, 20);
     if (kind !== "none" && !name) { kErr(kind === "name" ? "お名前を入力してください（入力したくない場合は「入力しない」を選べます）" : "ニックネームを入力してください"); $("kName").focus(); return; }
     // 同じ名前がすでにいるときは確認する（ほかの人の番号は表示しない）
-    if (!force && kind !== "none" && Object.values(members).some(m => m.kind !== "none" && m.name === name)) {
+    // 比べるときだけ、空白をなくし、全角・半角と大文字・小文字をそろえる（保存する名前は入力どおり）
+    const same = v => String(v).normalize("NFKC").replace(/\s+/g, "").toLowerCase();
+    if (!force && kind !== "none" && Object.values(members).some(m => m.kind !== "none" && same(m.name) === same(name))) {
       kPending = { kind, name };
       $("kDupText").textContent = "同じお名前の方がすでに受付しています。別の方ですか？";
       kShow("kDup"); $("kDupYes").focus(); return;
@@ -2258,6 +2382,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     $("kNum").textContent = num;
     $("kWho").textContent = kind === "none" ? "（名前なしで受付しました）" : `${name} さん`;
     kShow("kTicket");
+    kShownAt = performance.now();
     replay($("kNum"));
     if (soundOn) { blip(784, 0.12, "triangle", 0.08); blip(1047, 0.25, "triangle", 0.08, 0.12); }
     kLeft = settings.resetSec;
@@ -2271,14 +2396,15 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   $("kName").addEventListener("input", () => kErr(""));
   $("kDupYes").addEventListener("click", () => { if (kPending) kSubmit(true); });
   $("kDupNo").addEventListener("click", () => { kPending = null; kShow("kForm"); $("kName").focus(); $("kName").select(); });
-  $("kNext").addEventListener("click", () => kReset());
+  // 番号を出した直後の「次の方へ」は受け付けない（Enterの2回押し・押しっぱなしで、本人が番号を見る前に消えないように）
+  $("kNext").addEventListener("click", () => { if (performance.now() - kShownAt >= 1000) kReset(); });
 
   function renderReceptionAdmin() {
     $("kCount").textContent = Object.keys(members).length;
     const nx = settings.numbering === "seq" ? nextNumber() : null;
     $("kNextNum").textContent = settings.numbering === "random" ? "ランダム" : nx == null ? "満員" : nx;
     const [a, b] = numRange();
-    $("kMode").textContent = `番号の振り方：${settings.numbering === "random" ? "ランダム" : "来た順"}（${a}〜${b}番）${settings.open ? "" : "・受付終了中"}`;
+    $("kMode").textContent = `番号の振り方：${settings.numbering === "random" ? "ランダム" : "来た順"}（${a}〜${b}番）${settings.open ? "" : "・受付終了中"}${numberDrawing() ? "・参加人数で抽選中のため受付停止中" : ""}`;
     $("kEvent").textContent = settings.eventName;
     $("kEvent").hidden = !settings.eventName;
     if (!settings.open && !$("kForm").hidden) kShow("kClosed");
@@ -2286,11 +2412,15 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   }
 
   // 受付モード：全画面にして、来場者がほかの画面に移れないようにする
-  function setKiosk(on) {
+  // 受付モード中かどうかは、このタブにだけ覚えておく（再読み込みしても受付モードのまま。ほかのタブには影響しない）
+  const KIOSK_KEY = STORE + "-kiosk";
+  // fullscreen：全画面にするか（再読み込みで受付モードに戻すときは、ブラウザに拒否されるので全画面にしない）
+  function setKiosk(on, fullscreen = true) {
     document.body.classList.toggle("kiosk", on);
+    try { if (on) sessionStorage.setItem(KIOSK_KEY, "1"); else sessionStorage.removeItem(KIOSK_KEY); } catch (e) {}
     $("kStaff").hidden = !on;
     try {
-      if (on && !document.fullscreenElement && document.documentElement.requestFullscreen) {
+      if (on && fullscreen && !document.fullscreenElement && document.documentElement.requestFullscreen) {
         const r = document.documentElement.requestFullscreen(); if (r && r.catch) r.catch(() => {});
       } else if (!on && document.fullscreenElement) {
         const r = document.exitFullscreen(); if (r && r.catch) r.catch(() => {});
@@ -2345,7 +2475,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   });
   $("restoreNo").addEventListener("click", () => { pendingBackup = null; $("restoreRow").hidden = true; $("backupMsg").textContent = "戻すのをやめました"; });
   $("restoreYes").addEventListener("click", () => {
-    if (!pendingBackup || spinning || beatTimer) return;
+    if (!pendingBackup || spinning || beatTimer || othersSpinning()) return;
     try {
       localStorage.setItem(STORE, JSON.stringify(pendingBackup.state));
       if (pendingBackup.members && pendingBackup.members.members) localStorage.setItem(STORE + "-members", JSON.stringify(pendingBackup.members));
@@ -2356,12 +2486,67 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     location.reload();   // 読み込み時のチェックを通して、安全に反映する
   });
   $("wipeAll").addEventListener("click", e => {
-    if (spinning || beatTimer) return;
+    if (spinning || beatTimer || othersSpinning()) return;
     armed(e.currentTarget, "本当にすべて消す？（もう一度押す）", () => {
       try { [STORE, STORE + "-members", STORE + "-settings", STORE + "-sound"].forEach(k => localStorage.removeItem(k)); } catch (err) {}
       location.hash = "draw";
       location.reload();
     });
+  });
+
+  // ======================================================================
+  // ほかのタブとの同期：同じ端末で2つのタブ（受付用と抽選用など）を開いているとき、
+  // ほかのタブで保存された内容をすぐ読み直す。古い内容のまま保存して、相手の変更を上書きしないため
+  // （ブラウザの storage イベントを使う。外部との通信はしない）
+  // ======================================================================
+  let syncWaiting = false;
+  function applySync() {
+    syncWaiting = false;
+    loadMembers(); deriveRoster(); loadSettings(); loadState();
+    const sp = storedSpin; storedSpin = null;
+    if (hasRoster()) N = rosterPeople();   // 名簿の人数に合わせる（読み直しただけなので保存はしない）
+    try { soundOn = localStorage.getItem(STORE + "-sound") !== "off"; } catch (e) {}
+    // ほかのタブで回している途中の当選は、そのタブが決める（このタブで回している当選なら何もしない）
+    if (sp && spinSaved && sp.i === spinSaved.i && sp.n === spinSaved.n) otherSpin = null;
+    else takeSpin(sp, false);
+    if (pending !== null || !reveal.hidden) wheelDirty = true; else rebuildWheel();
+    renderSound(); renderSide(); renderPlus();
+    // 開いている当選画面・結果：ほかのタブのリセットや回し直しで当選が消えていたら閉じ、残っていれば「次の○位」などを最新にする
+    if (!reveal.hidden) { if (wins[revealIdx] !== revealNum) closeReveal(); else revealTexts(); }
+    if (!resultEl.hidden && !drawnCount()) resultEl.hidden = true;
+  }
+  // 保存データにあった「回し始めた時点の当選」の扱い
+  //  ・このタブが回していた（own）、または回していたタブが閉じられた（時間切れ）とき：その番号で当選画面を出す（引き直しにしない）
+  //  ・ほかのタブが回している途中のとき、受付モードのとき：そのまま持っておく（当選画面は出さない）
+  let otherTimer = null;
+  function takeSpin(sp, own) {
+    clearTimeout(otherTimer);
+    if (!validSpin(sp)) { otherSpin = null; return; }
+    const kiosk = document.body.classList.contains("kiosk");
+    if ((!own && spinFresh(sp)) || kiosk || spinning || beatTimer || pending !== null || !reveal.hidden) {
+      otherSpin = sp;
+      if (spinFresh(sp)) otherTimer = setTimeout(otherSpinCheck, SPIN_STALE_MS - (Date.now() - sp.at) + 200);
+      return;
+    }
+    otherSpin = null;
+    wins[sp.i] = sp.n; drawOrder.push(sp.i);
+    save(); rebuildWheel(); renderSide(); renderPlus();
+    if (view !== "draw") location.replace("#draw");
+    showReveal(sp.n);
+    revealNote = "回転中に再読み込みされたため、回し始めたときに決まっていた当選番号を表示しています"; revealTexts();
+  }
+  // ほかのタブの回転が時間切れになったら（そのタブが閉じられたら）、このタブで当選画面を出す
+  function otherSpinCheck() {
+    const sp = otherSpin;
+    if (!sp || spinFresh(sp)) return;
+    takeSpin(sp, false);
+    renderSide(); renderPlus();
+  }
+  addEventListener("storage", e => {
+    if (e.storageArea && e.storageArea !== localStorage) return;
+    if (e.key !== null && !String(e.key).startsWith(STORE)) return;
+    if (spinning || beatTimer) { syncWaiting = true; return; }   // 回っている間は、止まってから読み直す
+    applySync();
   });
 
   if (!isDummy) setMsg(`景品 ${prizes.length}件を登録しています`);
@@ -2373,6 +2558,13 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   renderRoster();
   renderPlus();
   route();
+  // 受付モードのまま再読み込みされたとき：受付モードに戻す（全画面はブラウザの制約で自動では戻せない）
+  try { if (sessionStorage.getItem(KIOSK_KEY)) setKiosk(true, false); } catch (e) {}
+  // 回っている途中で再読み込みされたとき：回し始めた時点で決まっていた当選番号で当選画面を出す
+  // （名簿や景品が変わって使えなくなったものは捨てる。ほかのタブが回している途中なら、そのタブに任せる）
+  let ownSpin = false;
+  try { ownSpin = !!sessionStorage.getItem(SPIN_KEY); sessionStorage.removeItem(SPIN_KEY); } catch (e) {}
+  { const sp = storedSpin; storedSpin = null; takeSpin(sp, ownSpin); if (otherSpin) { renderSide(); renderPlus(); } }   // ほかのタブで回している途中なら、変更できない表示にする
   requestAnimationFrame(frame);
 })();
 </script>

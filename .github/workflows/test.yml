@@ -1,0 +1,29 @@
+# push とプルリクエストのたびに、ブラウザの自動テスト（tests/）を実行する
+# index.html には何も足さないので、公開ページや通信の制限（CSP）には影響しない
+name: テスト
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Playwright と Chromium を入れる
+        run: |
+          npm install --no-save --no-package-lock playwright@1.63.0
+          npx playwright install --with-deps chromium
+      - name: テストを実行（ローカルサーバーと file:// の両方）
+        run: sh tests/run.sh
+        env:
+          FAIR_ROUNDS: 300   # 公平性のテストは GitHub では300回×3本に減らす（手元では既定の1000回、または回数を指定して実行）
