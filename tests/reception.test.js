@@ -168,3 +168,34 @@ test("受付モード中に再読み込みしても受付モードのまま。�
   assert.deepEqual(t.errors, []);
   await t.close();
 });
+
+test("日本語の変換を確定する Enter（変換中のキー入力）では受付を送信しない。ふつうの Enter では送信する", async () => {
+  const t = await h.open({ hash: "reception" });
+  await t.page.fill("#kName", "やまだ");
+  const r = await t.page.evaluate(() => {
+    const inp = document.getElementById("kName");
+    let reachedForm = 0, submitted = 0;
+    const f = document.getElementById("kForm");
+    f.addEventListener("keydown", () => reachedForm++);
+    f.addEventListener("submit", () => submitted++);
+    const res = [];
+    for (const init of [{ key: "Enter", isComposing: true }, { key: "Enter", keyCode: 229 }, { key: "Process", keyCode: 229 }]) {
+      const ev = new KeyboardEvent("keydown", { ...init, bubbles: true, cancelable: true });
+      if (init.keyCode) Object.defineProperty(ev, "keyCode", { get: () => init.keyCode });
+      inp.dispatchEvent(ev);
+      res.push(ev.defaultPrevented);
+    }
+    return { res, reachedForm, submitted };
+  });
+  assert.deepEqual(r.res, [true, true, false]);   // 変換中のほかのキーは止めない（日本語入力を妨げない）
+  assert.equal(r.reachedForm, 0);
+  assert.equal(await t.page.locator("#kTicket").isHidden(), true);
+  await t.page.press("#kName", "Enter");
+  assert.equal(await t.page.locator("#kTicket").isVisible(), true);
+  // 景品名の欄でも、ふつうの Enter は確定できる
+  await t.page.evaluate(() => location.hash = "prizes");
+  const inp = t.page.locator('#prizeEdit input[data-i="0"]');
+  await inp.fill("変更"); await inp.press("Enter");
+  assert.equal((await h.stored(t.page)).prizes[0].name, "変更");
+  await t.close();
+});
