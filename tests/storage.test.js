@@ -31,13 +31,14 @@ for (const [label, storage] of [
 ]) {
   test(`localStorage の${label}：エラーにならず、全画面・抽選・書き出し・受付が動く`, async () => {
     const t = await h.open({ clock: true, reducedMotion: true, storage, initTimeout: 5000 });
-    await smoke(t);
-    await t.page.evaluate(() => location.hash = "data");
-    for (const sel of ["#expResults", "#expPrizes", "#expMembers", "#expBackup"]) await Promise.all([t.page.waitForEvent("download"), t.page.click(sel)]);
+    // 受付は抽選の前に（名簿なしで抽選を始めると、リセットまで受付できないため）
     await t.page.evaluate(() => location.hash = "reception");
     await t.page.fill("#kName", "テスト"); await t.page.click("#kForm button[type=submit]");
     if (await t.page.locator("#kDup").isVisible()) await t.page.click("#kDupYes");
     assert.match(await t.page.textContent("#kNext"), /あと(5|10|15|30)秒/);
+    await smoke(t);
+    await t.page.evaluate(() => location.hash = "data");
+    for (const sel of ["#expResults", "#expPrizes", "#expMembers", "#expBackup"]) await Promise.all([t.page.waitForEvent("download"), t.page.click(sel)]);
     await t.page.evaluate(() => location.hash = "prizes");
     const ns = await t.page.$$eval("#prizeEdit input", a => a.map(x => x.value));
     assert.ok(ns.every(n => n && n !== "undefined" && n !== "null" && n !== "[object Object]"), JSON.stringify(ns));
@@ -48,10 +49,10 @@ for (const [label, storage] of [
 
 test("localStorage が使えない：保存されないだけで、全画面・抽選・受付が動く", async () => {
   const t = await h.open({ clock: true, reducedMotion: true, noStorage: true });
-  await smoke(t);
   await t.page.evaluate(() => location.hash = "reception");
   await t.page.fill("#kName", "テスト"); await t.page.click("#kForm button[type=submit]");
   assert.equal(await t.page.locator("#kTicket").isVisible(), true);
+  await smoke(t);
   await t.page.evaluate(() => location.hash = "data");
   await t.page.click("#wipeAll"); await Promise.all([t.page.waitForEvent("load"), t.page.click("#wipeAll")]);
   assert.deepEqual(t.errors, []);
