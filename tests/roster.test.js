@@ -45,28 +45,38 @@ test("当選者は名簿から削除できない（ボタンが押せない）",
   await t.close();
 });
 
-test("抽選の途中で名簿の人を消しても、決まった当選者は一覧・結果から消えない", async () => {
-  // 景品5件・名簿4人 → 上位4件を抽選。下位から2本引いたあと、まだ当たっていない人を1人消す
+test("景品が人数以上のときは、抽選の途中で名簿の人を消せない（1位まで抽選できる）", async () => {
+  // 景品5件・名簿4人 → 上位4件を抽選。下位から2本引いたあと、まだ当たっていない人を消そうとする
   const t = await h.open({ clock: true, reducedMotion: true, storage: { [S]: { prizes: h.makePrizes(5) }, [S + "-members"]: h.makeMembers({ 1: "A", 2: "B", 3: "C", 4: "D" }) } });
   const won = [];
   for (let k = 0; k < 2; k++) { won.push(await h.spinOnce(t.page)); await h.closeReveal(t.page); }
   const loser = [1, 2, 3, 4].find(n => !won.includes(n));
   await t.page.evaluate(() => location.hash = "members");
   await t.page.click(`button[data-del="${loser}"]`); await t.page.click(`button[data-del="${loser}"]`);
+  assert.match(await t.page.textContent("#rosterMsg"), /抽選の途中は削除できません/);
+  assert.ok((await h.stored(t.page, S + "-members")).members[loser]);
   await t.page.evaluate(() => location.hash = "draw");
-  const shown = (await h.listState(t.page)).filter(r => r.num).map(r => r.num);
-  assert.deepEqual(shown.sort(), won.slice().sort(), "当選済みの番号が一覧から消えた");
-  // 残りを全部引いても、当選者は重複せず、全員が結果に出る
   while (await t.page.locator("#spinBtn").isEnabled()) { won.push(await h.spinOnce(t.page)); await h.closeReveal(t.page); await t.page.locator("#result").evaluate(e => { e.hidden = true; }); }
-  assert.equal(new Set(won).size, won.length);
-  assert.equal(won.length, 3);
-  const listed = (await h.listState(t.page)).filter(r => r.num).map(r => r.num);
-  assert.deepEqual(listed.sort(), won.slice().sort());
-  // 結果のCSVにも全員が出る
-  await t.page.evaluate(() => location.hash = "data");
-  const [dl] = await Promise.all([t.page.waitForEvent("download"), t.page.click("#expResults")]);
-  const csv = require("fs").readFileSync(await dl.path(), "utf8");
-  for (const n of won) assert.match(csv, new RegExp(`,${n},`));
+  assert.deepEqual(won.slice().sort(), [1, 2, 3, 4]);
+  assert.deepEqual((await h.listState(t.page)).map(r => r.rank), [1, 2, 3, 4]);
+  assert.equal(await t.page.locator("#resultBtn").isVisible(), true);
+  await t.close();
+});
+
+test("人数に余裕があるときや、外した番号の人は、抽選の途中でも消せる。決まった当選者は一覧から消えない", async () => {
+  const t = await h.open({ clock: true, reducedMotion: true, storage: { [S]: { prizes: h.makePrizes(2), order2: "top" }, [S + "-members"]: h.makeMembers({ 1: "A", 2: "B", 3: "C", 4: "D" }) } });
+  const n1 = await h.spinOnce(t.page);
+  await t.page.click("#redoBtn"); await t.page.click("#doRedo");   // n1 を外した番号にする
+  for (let k = 0; k < 10 && await t.page.locator("#reveal").isHidden(); k++) await t.page.clock.runFor(1000);
+  const n2 = +(await t.page.textContent("#bigNum")); await h.closeReveal(t.page);
+  await t.page.evaluate(() => location.hash = "members");
+  await t.page.click(`button[data-del="${n1}"]`); await t.page.click(`button[data-del="${n1}"]`);
+  assert.equal((await h.stored(t.page, S + "-members")).members[n1], undefined);
+  const free = [1, 2, 3, 4].find(n => n !== n1 && n !== n2);
+  await t.page.click(`button[data-del="${free}"]`); await t.page.click(`button[data-del="${free}"]`);
+  assert.equal((await h.stored(t.page, S + "-members")).members[free], undefined);
+  await t.page.evaluate(() => location.hash = "draw");
+  assert.equal((await h.listState(t.page)).find(r => r.rank === 1).num, n2);
   await t.close();
 });
 

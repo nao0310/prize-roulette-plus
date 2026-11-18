@@ -2255,6 +2255,11 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   $("memBody").addEventListener("click", e => {
     const b = e.target.closest("button[data-del]"); if (!b || b.disabled) return;
     const n = +b.dataset.del;
+    // 抽選の途中で、景品が人数と同じか多いときは消さない（番号が足りなくなり、最後の景品（1位など）を抽選できなくなるため）
+    if (busy() && !absent.includes(n) && prizes.length >= poolSize()) {
+      renderRoster("抽選の途中は削除できません（景品の数に対して参加者が足りなくなるため）。当選者がいない場合は「回し直し」を使ってください", true);
+      return;
+    }
     armed(b, "消す？", () => {
       if (Object.values(wins).includes(n)) return;
       delete members[n];
