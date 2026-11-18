@@ -52,20 +52,18 @@ async function open(opts = {}) {
     const local = u.startsWith("data:") || u.startsWith("blob:") || u.startsWith("file://") || (baseUrl.startsWith("http") && u.startsWith(new URL(baseUrl).origin));
     if (!local) external.push(u);
   });
-  if (opts.storage || opts.noStorage) {
-    await page.addInitScript(([st, noStorage]) => {
-      if (noStorage) {
-        Object.defineProperty(window, "localStorage", { get() { throw new DOMException("denied", "SecurityError"); } });
-        return;
-      }
-      // 再読み込みでは入れ直さない（目印を sessionStorage に置くと、file:// でまれに入れ直してしまうため localStorage に置く）
-      if (localStorage.getItem("__test_seeded")) return;
-      localStorage.setItem("__test_seeded", "1");
-      for (const [k, v] of Object.entries(st || {})) localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v));
-    }, [opts.storage || null, !!opts.noStorage]);
+  if (opts.noStorage) {
+    await page.addInitScript(() => {
+      Object.defineProperty(window, "localStorage", { get() { throw new DOMException("denied", "SecurityError"); } });
+    });
   }
   if (opts.clock) await page.clock.install();
   await page.goto(baseUrl + (opts.hash ? "#" + opts.hash : ""));
+  // 保存データは、開いたページで入れてから読み込み直す（初期化スクリプトで入れると、file:// の再読み込みで入れ直されることがあるため）
+  if (opts.storage) {
+    await page.evaluate(st => { for (const [k, v] of Object.entries(st)) localStorage.setItem(k, typeof v === "string" ? v : JSON.stringify(v)); }, opts.storage);
+    await page.reload();
+  }
   try { await page.waitForFunction(() => document.querySelector("#spinBtn") && document.body.className.includes("view-"), null, { timeout: opts.initTimeout || 10000 }); } catch (e) { if (!opts.allowInitFail) throw e; }
   return { page, context, errors, external, consoleMsgs, close: () => context.close() };
 }
