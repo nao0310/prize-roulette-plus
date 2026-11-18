@@ -12,7 +12,7 @@ async function register(page, name, kind = "name") {
   await page.click("#kForm button[type=submit]");
 }
 const ticket = async page => (await page.locator("#kTicket").isVisible()) ? +(await page.textContent("#kNum")) : null;
-const next = page => page.click("#kNext");
+const next = page => h.kioskNext(page);
 
 test("来た順：最初の番号から順に。最大人数で満員になる", async () => {
   const t = await h.open({ hash: "reception", storage: { [S + "-settings"]: { numbering: "seq", start: 101, capacity: 3 } } });

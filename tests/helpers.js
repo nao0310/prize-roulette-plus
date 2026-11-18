@@ -115,3 +115,7 @@ const listState = page => page.$$eval("#prizeList .prow", rows => rows.map(r => 
 module.exports.makePrizes = makePrizes;
 module.exports.makeMembers = makeMembers;
 module.exports.listState = listState;
+
+// 受付の「次の方へ」（番号を出してから1秒間は押しても戻らない作りなので、1秒待ってから押す）
+async function kioskNext(page) { await page.waitForTimeout(1050); await page.click("#kNext"); }
+module.exports.kioskNext = kioskNext;

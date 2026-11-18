@@ -31,7 +31,7 @@ test("景品名・名前・イベント名にタグや記号を入れても実�
   for (const p of PAYLOADS) {
     await t.page.fill("#kName", p); await t.page.click("#kForm button[type=submit]");
     if (await t.page.locator("#kDup").isVisible()) await t.page.click("#kDupYes");
-    await t.page.click("#kNext");
+    await t.page.clock.runFor(1100); await t.page.click("#kNext");   // 時計を止めているので、1秒進めてから押す
   }
   // イベント名
   await t.page.evaluate(() => location.hash = "members");

@@ -2254,7 +2254,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   // ======================================================================
   // 受付（来場者が名前を入れて番号をもらう画面）
   // ======================================================================
-  let kTimer = null, kLeft = 0, kPending = null;
+  let kTimer = null, kLeft = 0, kPending = null, kShownAt = 0;
   const kKind = () => (document.querySelector('input[name="kKind"]:checked') || { value: "name" }).value;
   function kShow(which) { ["kForm", "kDup", "kTicket", "kClosed"].forEach(id => { $(id).hidden = id !== which; }); }
   function kErr(t) { $("kErr").textContent = t; $("kErr").hidden = !t; }
@@ -2290,6 +2290,7 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
     $("kNum").textContent = num;
     $("kWho").textContent = kind === "none" ? "（名前なしで受付しました）" : `${name} さん`;
     kShow("kTicket");
+    kShownAt = performance.now();
     replay($("kNum"));
     if (soundOn) { blip(784, 0.12, "triangle", 0.08); blip(1047, 0.25, "triangle", 0.08, 0.12); }
     kLeft = settings.resetSec;
@@ -2303,7 +2304,8 @@ body.kiosk .kiosk { min-height: 100%; align-content: center; }
   $("kName").addEventListener("input", () => kErr(""));
   $("kDupYes").addEventListener("click", () => { if (kPending) kSubmit(true); });
   $("kDupNo").addEventListener("click", () => { kPending = null; kShow("kForm"); $("kName").focus(); $("kName").select(); });
-  $("kNext").addEventListener("click", () => kReset());
+  // 番号を出した直後の「次の方へ」は受け付けない（Enterの2回押し・押しっぱなしで、本人が番号を見る前に消えないように）
+  $("kNext").addEventListener("click", () => { if (performance.now() - kShownAt >= 1000) kReset(); });
 
   function renderReceptionAdmin() {
     $("kCount").textContent = Object.keys(members).length;
