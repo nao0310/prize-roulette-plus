@@ -52,8 +52,13 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   --silver: #dfe2f0;
   --bronze: #e7a56c;
   --red: #ff4d6d; --yellow: #ffd23f; --green: #2fd27a; --blue: #3fa7ff; --purple: #b56bff;
-  --font-display: "Bungee", "Arial Black", system-ui, sans-serif;
-  --font-body: "M PLUS Rounded 1c", "Hiragino Maru Gothic ProN", "Meiryo", system-ui, sans-serif;
+  /* 日本語のフォント（Mac・iPhone、Windows、Android・Linux の順）。
+     system-ui や sans-serif に任せると、端末によっては中国語のフォントで漢字が表示される
+     （「骨」「直」「海」などの形が日本語と違う）ので、日本語のフォントを名前で先に指定する */
+  --font-jp: "Hiragino Maru Gothic ProN", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", "Yu Gothic UI", "Yu Gothic", YuGothic, "Meiryo",
+    "Noto Sans JP", "Noto Sans CJK JP", "Source Han Sans JP", "IPAexGothic", "IPAPGothic", "IPAGothic", "TakaoPGothic", "VL PGothic";
+  --font-display: "Bungee", "Arial Black", var(--font-jp), sans-serif;
+  --font-body: "M PLUS Rounded 1c", var(--font-jp), sans-serif;
 }
 [hidden] { display: none !important; }
 html, body { height: 100%; }
@@ -1252,6 +1257,9 @@ body.kiosk .kiosk { min-height: 100%; box-sizing: border-box; align-content: cen
   // ---------- ルーレット描画 ----------
   const canvas = document.getElementById("wheel");
   const ctx = canvas.getContext("2d");
+  // ルーレットの中の文字（「つぎは」「○位」）も日本語のフォントで描く（CSS の --font-jp と同じ並び）
+  const FONT_JP = getComputedStyle(document.documentElement).getPropertyValue("--font-jp").trim().replace(/\s+/g, " ") || "sans-serif";
+  if ("lang" in ctx) ctx.lang = "ja";   // 対応しているブラウザでは、文字の言語を日本語として描く
   const box = document.getElementById("wheelBox");
   const pointer = document.getElementById("pointer");
   let size = 0, dpr = 1;
@@ -1323,9 +1331,9 @@ body.kiosk .kiosk { min-height: 100%; box-sizing: border-box; align-content: cen
     } else {
       const np = nextPrize();
       if (np) {
-        ctx.font = `800 ${hr * 0.22}px "M PLUS Rounded 1c", sans-serif`;
+        ctx.font = `800 ${hr * 0.22}px "M PLUS Rounded 1c", ${FONT_JP}, sans-serif`;
         ctx.fillText("つぎは", cx, cy - hr * 0.45);
-        ctx.font = `${hr * (np.rank >= 10 ? 0.6 : 0.75)}px Bungee, sans-serif`;
+        ctx.font = `${hr * (np.rank >= 10 ? 0.6 : 0.75)}px Bungee, ${FONT_JP}, sans-serif`;
         ctx.fillText(np.rank + "位", cx, cy + hr * 0.12);
       } else {
         ctx.font = `${hr * 0.3}px Bungee, sans-serif`;
